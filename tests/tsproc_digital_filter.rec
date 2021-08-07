@@ -1,0 +1,89 @@
+
+Thu Jan 21 2021 15:30: processing information contained in TSPROC input file tsproc_digital_filter.inp....
+
+ Processing SETTINGS block....
+    context context_1
+    DATE_FORMAT mm/dd/yyyy
+    Processing of SETTINGS block complete.
+
+ Processing GET_SERIES_WDM block....
+    context context_1
+    NEW_SERIES_NAME in02329500
+    FILE data_test.wdm
+    DSN 1
+    FILTER -999
+    Reading WDM file data_test.wdm....
+    Series "in02329500" successfully imported from file data_test.wdm
+
+ Processing GET_SERIES_WDM block....
+    context context_1
+    NEW_SERIES_NAME in02322500
+    FILE data_test.wdm
+    DSN 2
+    FILTER -999
+    Reading WDM file data_test.wdm....
+    Series "in02322500" successfully imported from file data_test.wdm
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME in02329500
+    NEW_SERIES_NAME rt02329500
+    DATE_1 02/01/1970
+    TIME_1 13:13:00
+    DATE_2 06/01/1980
+    TIME_2 00:00:00
+    Series "rt02329500" successfully calculated.
+
+ Processing DIGITAL_FILTER block....
+    context context_1
+    FILTER_TYPE butterworth
+    SERIES_NAME rt02329500
+    NEW_SERIES_NAME lo02329500
+    FILTER_PASS low
+    CUTOFF_FREQUENCY .10000000
+    Series "lo02329500" successfully calculated.
+
+ Processing DIGITAL_FILTER block....
+    context context_1
+    FILTER_TYPE butterworth
+    SERIES_NAME in02322500
+    NEW_SERIES_NAME lo02322500
+    FILTER_PASS low
+    CUTOFF_FREQUENCY .10000000
+    Series "lo02322500" successfully calculated.
+
+ Processing DIGITAL_FILTER block....
+    context context_1
+    FILTER_TYPE butterworth
+    SERIES_NAME rt02329500
+    NEW_SERIES_NAME hi02329500
+    FILTER_PASS high
+    CUTOFF_FREQUENCY .10000000
+    Series "hi02329500" successfully calculated.
+
+ Processing DIGITAL_FILTER block....
+    context context_1
+    FILTER_TYPE butterworth
+    SERIES_NAME in02322500
+    NEW_SERIES_NAME hi02322500
+    FILTER_PASS high
+    CUTOFF_FREQUENCY .10000000
+    Series "hi02322500" successfully calculated.
+
+ Processing LIST_OUTPUT block....
+    context context_1
+    FILE tsproc_digital_filter_02322500_butterworth_low.out
+    SERIES_FORMAT long
+    SERIES_NAME lo02322500
+    Writing output file tsproc_digital_filter_02322500_butterworth_low.out....
+    File tsproc_digital_filter_02322500_butterworth_low.out written ok.
+
+ Processing LIST_OUTPUT block....
+    context context_1
+    FILE tsproc_digital_filter_02322500_butterworth_high.out
+    SERIES_FORMAT long
+    SERIES_NAME hi02322500
+    Writing output file tsproc_digital_filter_02322500_butterworth_high.out....
+    File tsproc_digital_filter_02322500_butterworth_high.out written ok.
+
+ - no more blocks to process.
