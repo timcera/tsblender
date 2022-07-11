@@ -3,7 +3,9 @@ START SETTINGS
  DATE_FORMAT mm/dd/yy
 END SETTINGS
 
+# This is a comment
 START GET_SERIES_WDM
+# This is another comment
  CONTEXT context_1
  NEW_SERIES_NAME IN02329500 IN02322500
  FILE data_test.wdm

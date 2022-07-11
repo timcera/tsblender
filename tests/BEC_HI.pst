@@ -1,0 +1,43 @@
+pcf
+* control data
+restart estimation
+      6     12      4      0      2
+     1     1   single   point   1   0   0
+5.0   2.0    0.3    0.03    10  999
+5.0   5.0   1.0e-3
+0.1   aui
+30   .005  4   4  .005   4
+1    1    1
+* parameter groups
+evap         relative     1.0000E-02  1.0000E-05  switch      2.000      outside_pts
+prcp         relative     1.0000E-02  1.0000E-05  switch      2.000      outside_pts
+soilzone     relative     1.0000E-02  1.0000E-05  switch      2.000      outside_pts
+ssres        relative     1.0000E-02  1.0000E-05  switch      2.000      outside_pts
+* parameter data
+jhcoef_fac   log    factor        1.0000       0.75000        1.5000      evap           1.000       0.000        1
+rnadj_fac    log    factor        1.0000       0.75000        1.5000      prcp           1.000       0.000        1
+snwadj_fac   log    factor        1.0000       0.75000        1.5000      prcp           1.000       0.000        1
+pfd_fac      log    factor        1.0000       0.75000        1.5000      soilzone       1.000       0.000        1
+s2gwe_fac    log    factor        1.0000       0.75000        1.5000      ssres          1.000       0.000        1
+s2gw_fac     log    factor        1.0000       0.75000        1.5000      ssres          1.000       0.000        1
+* observation groups
+esq6500
+sim_hyd_indx
+* observation data
+esq6500_1              1.000000         1.00000      esq6500
+esq6500_2              1.000000         1.00000      esq6500
+esq6500_3             0.9969871         1.00000      esq6500
+esq6500_4             0.9378747         1.00000      esq6500
+esq6500_5             0.7400035         1.00000      esq6500
+esq6500_6             0.3905908         1.00000      esq6500
+esq6500_7             0.1703586         1.00000      esq6500
+esq6500_8             8.1648372E-02     1.00000      esq6500
+esq6500_9             1.5277040E-02     1.00000      esq6500
+sim_hyd_indx1          28.20000         1.00000      sim_hyd_indx
+sim_hyd_indx2          26.62055         1.00000      sim_hyd_indx
+sim_hyd_indx3         0.5813904         1.00000      sim_hyd_indx
+* model command line
+modelcmd.bat
+* model input/output
+par2par_base.tpl   par2par_base.dat
+simulated_vals.ins   hi_list_sim_pest.txt

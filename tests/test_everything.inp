@@ -1,0 +1,53 @@
+
+START SETTINGS
+ CONTEXT context_1
+ DATE_FORMAT mm/dd/yy
+END SETTINGS
+
+START GET_SERIES_WDM
+  CONTEXT context_1
+  FILE test.wdm
+  DSN 100 101
+  NEW_SERIES_NAME flow nflow
+END GET_SERIES_WDM
+
+START ERASE_ENTITY
+  CONTEXT context_1
+  SERIES flow
+END ERASE_ENTITY
+
+#==> Read in SIMULATED data for BLACK EARTH CREEK AT BLACK EARTH (05406500)
+START GET_MUL_SERIES_SSF
+  CONTEXT all
+  FILE gsflow_sumq_05406500.ssf
+  SITE 05406500
+  NEW_SERIES_NAME Sq6500i
+END GET_MUL_SERIES_SSF
+
+START GET_SERIES_HSPFBIN
+  CONTEXT all
+  FILE 6b_np1.hbn
+  NEW_SERIES_NAME bhnyr
+  INTERVAL yearly
+  ID 905
+  VARIABLE_GROUP PWATER
+  VARIABLE AGWO
+# PERLND   905  PWATER   AGWO      5
+#                "args": ["CONTEXT", "FILE", "NEW_SERIES_NAME", "INTERVAL"],      
+#                "kwds": {                                                        
+#                    "OPERATIONTYPE": None,                                       
+#                    "ID": None,                                                  
+#                    "VARIABLE_GROUP": None,                                      
+#                    "VARIABLE": None,                                            
+#                    "DATE_1": None,                                              
+#                    "TIME_1": None,                                              
+#                    "DATE_2": None,                                              
+#                    "TIME_2": None,   
+END GET_SERIES_HSPFBIN
+
+START GET_SERIES_CSV
+  CONTEXT all
+  FILE 02239501.csv
+  NEW_SERIES_NAME S02239501 F02239501
+  USE_COLS        1         2
+END GET_SERIES_CSV

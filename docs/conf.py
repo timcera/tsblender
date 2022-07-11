@@ -50,8 +50,8 @@ source_suffix = ".rst"
 master_doc = "index"
 
 # General information about the project.
-project = u"tsblender"
-copyright = u"2013, Tim Cera, P.E."
+project = "tsblender"
+copyright = "2013, Tim Cera, P.E."
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -191,7 +191,7 @@ latex_elements = {
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title, author, documentclass [howto/manual]).
 latex_documents = [
-    ("index", "tsblender.tex", u"tsblender Documentation", u"Tim Cera, P.E.", "manual")
+    ("index", "tsblender.tex", "tsblender Documentation", "Tim Cera, P.E.", "manual")
 ]
 
 # The name of an image file (relative to this directory) to place at the top of
@@ -219,7 +219,7 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [("index", "tsblender", u"tsblender Documentation", [u"Tim Cera, P.E."], 1)]
+man_pages = [("index", "tsblender", "tsblender Documentation", ["Tim Cera, P.E."], 1)]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
@@ -234,8 +234,8 @@ texinfo_documents = [
     (
         "index",
         "tsblender",
-        u"tsblender Documentation",
-        u"Tim Cera, P.E.",
+        "tsblender Documentation",
+        "Tim Cera, P.E.",
         "tsblender",
         "One line description of project.",
         "Miscellaneous",
@@ -255,10 +255,10 @@ texinfo_documents = [
 # -- Options for Epub output ---------------------------------------------------
 
 # Bibliographic Dublin Core info.
-epub_title = u"tsblender"
-epub_author = u"Tim Cera, P.E."
-epub_publisher = u"Tim Cera, P.E."
-epub_copyright = u"2013, Tim Cera, P.E."
+epub_title = "tsblender"
+epub_author = "Tim Cera, P.E."
+epub_publisher = "Tim Cera, P.E."
+epub_copyright = "2013, Tim Cera, P.E."
 
 # The language of the text. It defaults to the language option
 # or en if the language is not set.
