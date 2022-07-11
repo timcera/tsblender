@@ -429,7 +429,7 @@ class Tables:
                     "DATE_2": None,
                     "TIME_2": None,
                 },
-                "f": lambda x: x,
+                "f": series_statistic,
             },
             "USGS_HYSEP": {
                 "args": [
@@ -445,7 +445,7 @@ class Tables:
                     "DATE_2": None,
                     "TIME_2": None,
                 },
-                "f": lambda x: x,
+                "f": usgs_hysep,
             },
             "V_TABLE_TO_SERIES": {
                 "args": ["CONTEXT", "NEW_SERIES_NAME", "V_TABLE_NAME", "TIME_ABSCISSA"],
@@ -557,6 +557,18 @@ class Tables:
         if date is None:
             return None
         return f"{date}T{time}"
+
+    def _normalize_bools(self, torf):
+        if torf is True or torf is False:
+            return torf
+        if isinstance(torf, str):
+            if torf.lower() in ["y", "yes"]:
+                return True
+            if torf.lower() in ["n", "no"]:
+                return False
+        if torf:
+            return True
+        return False
 
     def digital_filter(
         self,
@@ -794,6 +806,98 @@ The site name "{site}" is not in the available sites "{ts.columns}".
             names=pd.Index([new_series_name]),
         )
         self._join(series=ts)
+
+    def series_statistic(
+        self,
+        series_name,
+        new_s_table_name,
+        sum=False,
+        mean=False,
+        median=False,
+        minmean=False,
+        maxmean=False,
+        std_dev=False,
+        maximum=False,
+        minimum=False,
+        range=False,
+        log=False,  # ?
+        power=False,  # ?
+        date_1=None,
+        time_1=None,
+        date_2=None,
+        time_2=None,
+    ):
+        whichdf = self.current[series_name]
+        series = self.series[whichdf][series_name]
+        rows = [
+            "sum",
+            "mean",
+            "median",
+            "minmean",
+            "maxmean",
+            "std_dev",
+            "maximum",
+            "minimum",
+            "range",
+        ]
+        s_table = pd.DataFrame(
+            [pd.NA] * len(rows), index=rows, names=[new_s_table_name]
+        )
+        if _normlize_bools(sum):
+            s_table.loc["sum", :] = series.sum()
+        if _normlize_bools(mean):
+            s_table.loc["mean", :] = series.mean()
+        if _normlize_bools(median):
+            s_table.loc["median", :] = series.median()
+        if _normlize_bools(minmean):
+            s_table.loc["minmean", :] = series.minmean()  # ?
+        if _normlize_bools(maxmean):
+            s_table.loc["maxmean", :] = series.maxmean()  # ?
+        if _normlize_bools(std_dev):
+            s_table.loc["std_dev", :] = series.std_dev()  # ?
+        if _normlize_bools(maximum):
+            s_table.loc["maximum", :] = max(series)
+        if _normlize_bools(minimum):
+            s_table.loc["minimum", :] = min(series)
+        if _normlize_bools(range):
+            s_table.loc["range", :] = max(series) - min(series)
+        self._join(s_table=s_table)
+
+    def usgs_hysep(
+        self,
+        series_name,
+        new_series_name,
+        hysep_type,
+        time_interval,
+        date_1=None,
+        time_1=None,
+        date_2=None,
+        time_2=None,
+    ):
+        from hydrotoolbox import hydrotoolbox
+
+        whichdf = self.current[series_name]
+        series = self.series[whichdf][series_name]
+        if hysep_type.lower() == "fixed":
+            new_series = hydrotoolbox.base_sep.fixed(series)
+        elif hysep_type.lower() == "sliding":
+            new_series = hydrotoolbox.base_sep.sliding(series)
+        elif hysep_type.lower() == "interval":
+            new_series = hydrotoolbox.base_sep.interval(series)
+        else:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    """
+The 'hysep_type' argument must be one of "fixed", "sliding", or "interval".  You gave {hysep_type}."""
+                )
+            )
+        new_series = tsutils.common_kwds(
+            new_series,
+            start_date=self._normalize_dates(date_1, time_1),
+            end_date=self._normalize_dates(date_2, time_2),
+            names=pd.Index([new_series_name]),
+        )
+        self._join(series=new_series)
 
 
 def get_blocks(seq):
