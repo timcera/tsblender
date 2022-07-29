@@ -33,6 +33,7 @@ install_requires = [
     "hspfbintoolbox",
     "swmmtoolbox",
     "tstoolbox",
+    "pyemu",
 ]
 
 extras_require = {
