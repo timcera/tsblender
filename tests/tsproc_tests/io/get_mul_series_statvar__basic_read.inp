@@ -1,0 +1,18 @@
+START SETTINGS
+#  CONTEXT pest_input
+  CONTEXT all
+  DATE_FORMAT mm/dd/yyyy
+END SETTINGS
+
+
+###########################################################################
+# Process ALL STATVAR file data....
+###########################################################################
+#==> Read in STATVAR variables
+START GET_SERIES_STATVAR
+  CONTEXT all
+  FILE statvar.dat
+     LOCATION_ID       1           1      289      2       1        3       4       5        6
+     NEW_SERIES_NAME   Settruaxi   Soradi Sq6470i  Sq6500i Sq65145i Sq6540i Sq7948i Sqa6491i Sstruaxi
+     VARIABLE_NAME     basin_potet orad   pk_depth sub_cfs sub_cfs  sub_cfs sub_cfs sub_cfs  sub_cfs
+END GET_SERIES_STATVAR

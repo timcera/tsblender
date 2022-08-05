@@ -5,17 +5,18 @@ import datetime
 import os.path
 import sys
 import warnings
-from typing import Literal, Optional, Union, List
+from collections import OrderedDict
+from typing import List, Literal, Optional, Union
 
-from dateutil.parser import parse
 import mando
 import numpy as np
 import pandas as pd
-from tstoolbox import tsutils
-from tstoolbox import tstoolbox
 import typic
+from dateutil.parser import parse
+from tstoolbox import tstoolbox, tsutils
 
-from .functions.get_series_wdm import get_wdm_data_set as get_series_wdm
+from .functions.get_series_plotgen import readPLTGEN as _get_series_plotgen
+from .functions.get_series_wdm import get_wdm_data_set as _get_series_wdm
 
 warnings.filterwarnings("ignore")
 
@@ -32,39 +33,25 @@ def about():
 
 
 deprecated = {
-    "GET_MUL_SERIES_PLOTGEN": "Use multiple blocks or a rolled up GET_SERIES_PLOTGEN block instead.",
-    "GET_MUL_SERIES_GSFLOW_GAGE": "Use multiple blocks or a rolled up GET_SERIES_GSFLOW_GAGE block instead.",
-    "GET_MUL_SERIES_SSF": "Use multiple blocks or a rolled up GET_SERIES_SSF block instead.",
-    "GET_MUL_SERIES_STATVAR": "Use multiple blocks or a rolled up GET_SERIES_STATVAR block instead.",
+    "GET_MUL_SERIES_PLOTGEN": "Use multiple GET_SERIES_PLOTGEN blocks or a rolled up GET_SERIES_PLOTGEN block instead.",
+    "GET_MUL_SERIES_GSFLOW_GAGE": "Use multiple GET_SERIES_GSFLOW_GAGE blocks or a rolled up GET_SERIES_GSFLOW_GAGE block instead.",
+    "GET_MUL_SERIES_SSF": "Use multiple GET_SERIES_SSF blocks or a rolled up GET_SERIES_SSF block instead.",
+    "GET_MUL_SERIES_STATVAR": "Use multiple GET_SERIES_STATVAR blocks or a rolled up GET_SERIES_STATVAR block instead.",
 }
 
 
 class Tables:
     def __init__(self):
-        self.series = {
-            "S": pd.DataFrame(),
-            "T": pd.DataFrame(),
-            "H": pd.DataFrame(),
-            "D": pd.DataFrame(),
-            "M": pd.DataFrame(),
-            "MS": pd.DataFrame(),
-            "A-DEC": pd.DataFrame(),
-            "AS-JAN": pd.DataFrame(),
-        }
-        self.v_table = {
-            "S": pd.DataFrame(),
-            "T": pd.DataFrame(),
-            "H": pd.DataFrame(),
-            "D": pd.DataFrame(),
-            "M": pd.DataFrame(),
-            "A-DEC": pd.DataFrame(),
-        }
+        self.series = {}
+        self.series_dates = {}
+        self.v_table = pd.DataFrame()
         self.c_table = pd.DataFrame()
         self.s_table = pd.DataFrame()
         self.e_table = pd.DataFrame()
         self.g_table = pd.DataFrame()
         self.current_series = {}
-        self.current_v_table = {}
+        self.current_v_table_srcs = {}
+        self.g_table_metadata = {}
 
         self.funcs = {
             "SETTINGS": {
@@ -116,7 +103,8 @@ class Tables:
             },
             "FLOW_DURATION": {
                 "args": [
-                    "CONTEXT", "SERIES_NAME",
+                    "CONTEXT",
+                    "SERIES_NAME",
                     "NEW_G_TABLE_NAME",
                 ],
                 "kwds": {
@@ -142,6 +130,24 @@ class Tables:
                 },
                 "f": self.flow_duration,
             },
+            "GET_MUL_SERIES_GSFLOW_GAGE": {
+                "args": [
+                    "CONTEXT",
+                    "FILE",
+                    "DATA_TYPE",
+                    "NEW_SERIES_NAME",
+                    "MODEL_REFERENCE_DATE",
+                    "MODEL_REFERENCE_TIME",
+                ],
+                "kwds": {
+                    "TIME_UNITS_PER_DAY": 1,
+                    "DATE_1": None,
+                    "TIME_1": None,
+                    "DATE_2": None,
+                    "TIME_2": None,
+                },
+                "f": self.get_series_gsflow_gage,
+            },
             "GET_SERIES_GSFLOW_GAGE": {
                 "args": [
                     "CONTEXT",
@@ -158,7 +164,7 @@ class Tables:
                     "DATE_2": None,
                     "TIME_2": None,
                 },
-                "f": lambda x: x,
+                "f": self.get_series_gsflow_gage,
             },
             "GET_SERIES_CSV": {
                 "args": ["CONTEXT", "FILE", "NEW_SERIES_NAME"],
@@ -189,6 +195,16 @@ class Tables:
                 },
                 "f": self.get_series_hspfbin,
             },
+            "GET_MUL_SERIES_PLOTGEN": {
+                "args": ["CONTEXT", "FILE", "LABEL", "NEW_SERIES_NAME"],
+                "kwds": {
+                    "DATE_1": None,
+                    "TIME_1": None,
+                    "DATE_2": None,
+                    "TIME_2": None,
+                },
+                "f": self.get_series_plotgen,
+            },
             "GET_SERIES_PLOTGEN": {
                 "args": ["CONTEXT", "FILE", "LABEL", "NEW_SERIES_NAME"],
                 "kwds": {
@@ -197,7 +213,7 @@ class Tables:
                     "DATE_2": None,
                     "TIME_2": None,
                 },
-                "f": lambda x: x,
+                "f": self.get_series_plotgen,
             },
             "GET_MUL_SERIES_SSF": {
                 "args": ["CONTEXT", "FILE", "SITE", "NEW_SERIES_NAME"],
@@ -219,6 +235,22 @@ class Tables:
                 },
                 "f": self.get_series_ssf,
             },
+            "GET_MUL_SERIES_STATVAR": {
+                "args": [
+                    "CONTEXT",
+                    "FILE",
+                    "VARIABLE_NAME",
+                    "LOCATION_ID",
+                    "NEW_SERIES_NAME",
+                ],
+                "kwds": {
+                    "DATE_1": None,
+                    "TIME_1": None,
+                    "DATE_2": None,
+                    "TIME_2": None,
+                },
+                "f": self.get_series_statvar,
+            },
             "GET_SERIES_STATVAR": {
                 "args": [
                     "CONTEXT",
@@ -233,7 +265,7 @@ class Tables:
                     "DATE_2": None,
                     "TIME_2": None,
                 },
-                "f": lambda x: x,
+                "f": self.get_series_statvar,
             },
             "GET_SERIES_SWMMBIN": {
                 "args": ["CONTEXT"],
@@ -282,7 +314,7 @@ class Tables:
                     "DATE_2": None,
                     "TIME_2": None,
                 },
-                "f": lambda x: x,
+                "f": self.hydro_events,
             },
             "HYDROLOGIC_INDICES": {
                 "args": ["CONTEXT", "SERIES_NAME", "NEW_G_TABLE_NAME"],
@@ -306,6 +338,7 @@ class Tables:
                     "TIME_1": None,
                     "DATE_2": None,
                     "TIME_2": None,
+                    "CURRENT_DEFINITIONS": False,
                 },
                 "f": self.hydrologic_indices,
             },
@@ -326,15 +359,16 @@ class Tables:
                 "args": [
                     "CONTEXT",
                     "NEW_SERIES_NAME",
+                    "NEW_SERIES_VALUE",
+                    "TIME_INTERVAL",
+                    "TIME_UNIT",
                     "DATE_1",
                     "TIME_1",
                     "DATE_2",
                     "TIME_2",
-                    "TIME_INTERVAL",
-                    "TIME_UNIT",
                 ],
                 "kwds": {},
-                "f": lambda x: x,
+                "f": self.new_series_uniform,
             },
             "NEW_TIME_BASE": {
                 "args": ["CONTEXT", "SERIES_NAME", "NEW_SERIES_NAME", "TB_SERIES_NAME"],
@@ -382,9 +416,9 @@ class Tables:
                     "BASE_LEVEL_TIME",
                 ],
                 "kwds": {
-                    "NEGATE": "no",
+                    "NEGATE": False,
                 },
-                "f": lambda x: x,
+                "f": self.series_base_level,
             },
             "SERIES_CLEAN": {
                 "args": [
@@ -422,12 +456,12 @@ class Tables:
                     "DATE_2": None,
                     "TIME_2": None,
                 },
-                "f": lambda x: x,
+                "f": self.series_compare,
             },
             "SERIES_DIFFERENCE": {
                 "args": ["CONTEXT", "SERIES_NAME", "NEW_SERIES_NAME"],
                 "kwds": {},
-                "f": lambda x: x,
+                "f": self.series_difference,
             },
             "SERIES_DISPLACE": {
                 "args": [
@@ -483,14 +517,21 @@ class Tables:
             "V_TABLE_TO_SERIES": {
                 "args": ["CONTEXT", "NEW_SERIES_NAME", "V_TABLE_NAME", "TIME_ABSCISSA"],
                 "kwds": {},
-                "f": lambda x: x,
+                "f": self.v_table_to_series,
             },
             "VOLUME_CALCULATION": {
-                "args": ["CONTEXT", "NEW_V_TABLE_NAME", "DATE_FILE", "FLOW_TIME_UNITS"],
+                "args": [
+                    "CONTEXT",
+                    "SERIES_NAME",
+                    "NEW_V_TABLE_NAME",
+                    "FLOW_TIME_UNITS",
+                ],
                 "kwds": {
+                    "DATE_FILE": None,
+                    "AUTOMATIC_DATES": None,
                     "FACTOR": 1.0,
                 },
-                "f": lambda x: x,
+                "f": self.volume_calculation,
             },
             "WRITE_PEST_FILES": {
                 "args": ["CONTEXT", "NEW_PEST_CONTROL_FILE", "NEW_INSTRUCTION_FILE"],
@@ -524,13 +565,17 @@ class Tables:
                     "TRUNCATED_SVD": 2.0e-7,
                     "MODEL_COMMAND_LINE": None,
                 },
-                "f": lambda x: x,
+                "f": self.write_pest_files,
             },
         }
 
     def _get_series(self, series_name: str):
-        whichdf = self.current_series[series_name.upper()]
-        return self.series[whichdf][series_name.upper()]
+        series_name = series_name.upper()
+        whichdf = self.current_series[series_name]
+        return self.series[whichdf][series_name]
+
+    def _get_v_table(self, v_table_name: str):
+        return self.v_table[v_table_name].dropna()
 
     def _join(
         self,
@@ -544,24 +589,25 @@ class Tables:
     ):
         new_name = new_name.strip().upper()
         if series is not None:
+            if new_name in self.current_series:
+                raise ValueError(f"{new_name} is already a named series")
             series = pd.DataFrame(series)
-            series.rename(columns={series.columns[0]: new_name}, inplace=True)
-            col = series.columns[0]
-            if col in self.current_series:
-                raise ValueError(f"{col} is already a named series")
-            self.current_series[col] = series.index.freqstr
-            self.series[series.index.freqstr] = self.series[series.index.freqstr].join(
-                series, how="outer"
-            )
+            series.columns = [new_name]
+            self.series_dates[new_name] = [series.index[0], series.index[-1]]
+            self.current_series[new_name] = series.index.freqstr
+            self.series[series.index.freqstr] = self.series.get(
+                series.index.freqstr, pd.DataFrame()
+            ).join(series, how="outer")
         if v_table is not None:
+            if new_name in self.v_table:
+                raise ValueError(f"{new_name} is already a named v_table")
+            self.current_v_table_srcs[new_name] = v_table.columns[0]
+            v_table = pd.DataFrame(v_table)
             v_table.columns = [new_name]
-            col = v_table.columns[0]
-            if col in self.current_v_table:
-                raise ValueError(f"{col} is already a named v_table")
-            self.current_v_table[col] = v_table.index.freqstr
-            self.v_table[v_table.index.freqstr] = self.v_table[
-                v_table.index.freqstr
-            ].join(v_table, how="outer")
+            try:
+                self.v_table = self.v_table.join(v_table, how="outer")
+            except ValueError:
+                self.v_table = v_table
         if c_table is not None:
             c_table.columns = [new_name]
             inname = c_table.columns[0]
@@ -581,18 +627,26 @@ class Tables:
                 raise ValueError(f"{inname} is already a named e_table")
             self.e_table = self.e_table.join(e_table, how="outer")
         if g_table is not None:
+            if new_name in self.g_table:
+                raise ValueError(f"{new_name} is already a named g_table")
+            g_table = pd.DataFrame(g_table)
             g_table.columns = [new_name]
-            inname = g_table.columns[0]
-            if inname in self.g_table.columns:
-                raise ValueError(f"{inname} is already a named g_table")
-            self.g_table = self.g_table.join(g_table, how="outer")
+            try:
+                self.g_table = self.g_table.join(g_table, how="outer")
+            except ValueError:
+                self.g_table = g_table
 
     def _normalize_dates(self, date, time="00:00:00"):
         if date is None:
             return None
         if time is None:
             time = "00:00:00"
-        return parse(f"{date} {time}").isoformat()
+        hh, mm, ss = time.split(":")
+        delta = pd.Timedelta(days=0)
+        if int(hh) == 24:
+            time = f"00:{int(mm):02}:{int(ss):02}"
+            delta = pd.Timedelta(days=1)
+        return (parse(f"{date} {time}") + delta).isoformat()
 
     def _normalize_bools(self, torf):
         if torf is True or torf is False:
@@ -700,18 +754,17 @@ class Tables:
             self.series[self.current_series[series]] = self.series[
                 self.current_series[series]
             ].drop(series, axis="columns")
+            del self.series_dates[series]
         if v_table is not None:
-            self.v_table[self.current_v_table[v_table]] = self.v_table[
-                self.current_v_table[v_table]
-            ].drop(v_table, axis="columns")
+            self.v_table = self.v_table.drop(v_table.upper(), axis="columns")
         if c_table is not None:
-            self.c_table = self.c_table.drop(c_table, axis="columns")
+            self.c_table = self.c_table.drop(c_table.upper(), axis="columns")
         if s_table is not None:
-            self.s_table = self.s_table.drop(s_table, axis="columns")
+            self.s_table = self.s_table.drop(s_table.upper(), axis="columns")
         if e_table is not None:
-            self.e_table = self.e_table.drop(e_table, axis="columns")
+            self.e_table = self.e_table.drop(e_table.upper(), axis="columns")
         if g_table is not None:
-            self.g_table = self.g_table.drop(g_table, axis="columns")
+            self.g_table = self.g_table.drop(g_table.upper(), axis="columns")
 
     @typic.al
     def exceedance_time(
@@ -764,11 +817,18 @@ class Tables:
             start_date=self._normalize_dates(date_1, time_1),
             end_date=self._normalize_dates(date_2, time_2),
         )
-
+        exceedance_probabilities = [float(i) for i in exceedance_probabilities]
         ans = flow_duration(
             input_ts=series,
             exceedance_probabilities=exceedance_probabilities,
         )
+        ans.columns = [series_name]
+        self.g_table_metadata[new_g_table_name.upper()] = [
+            series_name,
+            "flow_duration",
+            series.index[0],
+            series.index[-1],
+        ]
         self._join(new_g_table_name, g_table=ans)
 
     @typic.al
@@ -792,6 +852,106 @@ class Tables:
             end_date=self._normalize_dates(date_2, time_2),
         )
         self._join(new_series_name, series=ts)
+
+    @typic.al
+    def get_series_gsflow_gage(
+        self,
+        file: str,
+        data_type: str,
+        new_series_name: str,
+        model_reference_date: str,
+        model_reference_time: str,
+        time_units_per_day: int = 1,
+        date_1: str = None,
+        time_1: str = None,
+        date_2: str = None,
+        time_2: str = None,
+    ):
+        if isinstance(data_type, str):
+            data_type = [data_type]
+        if isinstance(new_series_name, str):
+            new_series_name = [new_series_name]
+        with open(file, "r") as f:
+            _ = f.readline()
+            headers = f.readline()
+        headers = headers.replace('"', "").split()
+        headers = headers[1:]
+        headers = [i.upper() for i in headers]
+        ts = pd.read_csv(
+            file,
+            skiprows=2,
+            sep=r"\s+",
+            quoting=3,
+            header=None,
+            names=headers,
+            index_col=0,
+        )
+
+        unit = pd.Timedelta(1, "D") / time_units_per_day
+
+        ts.index = (
+            unit * ts.index
+            + pd.to_datetime(model_reference_date + " " + model_reference_time)
+            - unit
+        )
+
+        ts = tsutils.common_kwds(
+            ts,
+            start_date=self._normalize_dates(date_1, time_1),
+            end_date=self._normalize_dates(date_2, time_2),
+        )
+
+        for dt, nsn in zip(data_type, new_series_name):
+            nts = ts[dt]
+            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
+            self._join(nsn.upper(), series=nts)
+
+    @typic.al
+    def get_series_statvar(
+        self,
+        file: str,
+        variable_name: str,
+        location_id: int,
+        new_series_name: str,
+        date_1: str = None,
+        time_1: str = None,
+        date_2: str = None,
+        time_2: str = None,
+    ):
+        if isinstance(variable_name, str):
+            variable_name = [variable_name]
+        if isinstance(location_id, int):
+            location_id = [location_id]
+        if isinstance(new_series_name, str):
+            new_series_name = [new_series_name]
+        with open(file, "r") as f:
+            num_series = int(f.readline().strip())
+            collect = []
+            for ns in range(num_series):
+                unique_id = f.readline().strip().split()
+                collect.append(unique_id)
+        headers = ["_".join(i) for i in collect]
+        ts = pd.read_csv(
+            file,
+            skiprows=num_series + 1,
+            header=None,
+            sep=r"\s+",
+            parse_dates=[[1, 2, 3, 4, 5, 6]],
+            date_parser=lambda x: pd.to_datetime(x, format="%Y %m %d %H %M %S"),
+        )
+        ts = ts.set_index("1_2_3_4_5_6")
+        ts = ts.drop(columns=[0])
+        ts.index.name = "Datetime"
+        ts.columns = headers
+        ts = tsutils.common_kwds(
+            ts,
+            start_date=self._normalize_dates(date_1, time_1),
+            end_date=self._normalize_dates(date_2, time_2),
+        )
+        for vn, lid, nsn in zip(variable_name, location_id, new_series_name):
+            nts = ts[f"{vn}_{lid}"]
+            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
+            self._join(nsn.upper(), series=nts)
 
     @typic.al
     def get_series_hspfbin(
@@ -830,16 +990,46 @@ class Tables:
         self._join(new_series_name, series=ts)
 
     @typic.al
+    def get_series_plotgen(
+        self,
+        file: str,
+        label: str,
+        new_series_name: str,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
+    ):
+        if isinstance(label, str):
+            label = [label]
+        if isinstance(new_series_name, str):
+            new_series_name = [new_series_name]
+        ts = _get_series_plotgen(file)[label]
+        ts = tsutils.common_kwds(
+            ts,
+            start_date=self._normalize_dates(date_1, time_1),
+            end_date=self._normalize_dates(date_2, time_2),
+        )
+        for lb, nsn in zip(label, new_series_name):
+            nts = ts[lb]
+            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
+            self._join(nsn.upper(), series=nts)
+
+    @typic.al
     def get_series_ssf(
         self,
         file: str,
         site: str,
         new_series_name: str,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
+        if isinstance(site, str):
+            site = [site]
+        if isinstance(new_series_name, str):
+            new_series_name = [new_series_name]
         ts = pd.read_csv(
             file,
             header=None,
@@ -859,29 +1049,30 @@ class Tables:
             raise ValueError(
                 tsutils.error_wrapper(
                     f"""
-                    Duplicate index (time stamp and '{ts.columns[0]}') were
-                    found. Found these duplicate indices:
-                    {ts.index.get_duplicates()}"""
+Duplicate index (time stamp and '{ts.columns[0]}') were found. Found these
+duplicate indices: {ts.index.get_duplicates()}"""
                 )
             )
         ts.index.name = "Datetime"
         ts.columns = [i[1] for i in ts.columns]
 
-        if site not in ts.columns:
-            raise ValueError(
-                tsutils.error_wrapper(
-                    f"""
-                    The site name "{site}" is not in the available sites
-                    "{ts.columns}"."""
-                )
-            )
         ts = tsutils.common_kwds(
-            ts[site],
+            ts,
             start_date=self._normalize_dates(date_1, time_1),
             end_date=self._normalize_dates(date_2, time_2),
         )
         ts.index = ts.index.to_period(ts.index[1] - ts.index[0]).to_timestamp()
-        self._join(new_series_name, series=ts)
+        for st, nsn in zip(site, new_series_name):
+            if st not in list(ts.columns):
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+The site name "{st}" is not in the available sites "{ts.columns}"."""
+                    )
+                )
+            nts = ts[st]
+            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
+            self._join(nsn.upper(), series=nts)
 
     @typic.al
     def get_series_wdm(
@@ -897,8 +1088,14 @@ class Tables:
         filter: Optional[int] = None,
     ):
         ts = pd.DataFrame(
-            get_series_wdm(file, {"dsn": dsn, "location": None, "constituent": None})
+            _get_series_wdm(file, {"dsn": dsn, "location": None, "constituent": None})
         )
+        hh, mm, ss = def_time.split(":")
+        if int(hh) == 24:
+            delta = pd.Timedelta(days=1, minutes=int(mm), seconds=int(ss))
+        else:
+            delta = pd.Timedelta(hours=int(hh), minutes=int(mm), seconds=int(ss))
+        ts.index = ts.index + delta
         ts = tsutils.common_kwds(
             ts,
             start_date=self._normalize_dates(date_1, time_1),
@@ -936,46 +1133,8 @@ class Tables:
         new_g_table_name: str,
         drainage_area: str = 1,
         use_median: bool = False,
-        stream_classification: Optional[
-            Literal[
-                "HARSH_INTERMITTENT",
-                "FLASHY_INTERMITTENT",
-                "SNOWMELT_PERENNIAL",
-                "SNOW_RAIN_PERENNIAL",
-                "GROUNDWATER_PERENNIAL",
-                "FLASHY_PERENNIAL",
-                "ALL_STREAMS",
-                "harsh_intermittent",
-                "flashy_intermittent",
-                "snowmelt_perennial",
-                "snow_rain_perennial",
-                "groundwater_perennial",
-                "flashy_perennial",
-                "all_streams",
-            ]
-        ] = None,
-        flow_component: Optional[
-            Literal[
-                "AVERAGE_MAGNITUDE",
-                "LOW_FLOW_MAGNITUDE",
-                "HIGH_FLOW_MAGNITUDE",
-                "LOW_FLOW_FREQUENCY",
-                "HIGH_FLOW_FREQUENCY",
-                "LOW_FLOW_DURATION",
-                "HIGH_FLOW_DURATION",
-                "TIMING",
-                "RATE_OF_CHANGE",
-                "average_magnitude",
-                "low_flow_magnitude",
-                "high_flow_magnitude",
-                "low_flow_frequency",
-                "high_flow_frequency",
-                "low_flow_duration",
-                "high_flow_duration",
-                "timing",
-                "rate_of_change",
-            ]
-        ] = None,
+        stream_classification=None,
+        flow_component=None,
         ma=None,
         ml=None,
         mh=None,
@@ -991,6 +1150,7 @@ class Tables:
         time_1=None,
         date_2=None,
         time_2=None,
+        current_definitions=False,
     ):
         from hydrotoolbox.hydrotoolbox import indices
 
@@ -1015,12 +1175,13 @@ class Tables:
             if not isinstance(value, list):
                 value = [value]
             ind.extend([f"{key}{i}" for i in value])
-
         if stream_classification is not None:
-            ind.extend([f"{sc}" for sc in stream_classification.split(" ")])
+            ind.extend(
+                [f"{sc}" for sc in tsutils.make_list(stream_classification, sep=" ")]
+            )
 
         if flow_component is not None:
-            ind.extend([f"{fc}" for fc in flow_component.split(" ")])
+            ind.extend([f"{fc}" for fc in tsutils.make_list(flow_component, sep=" ")])
 
         series = self._get_series(series_name)
         series = tsutils.common_kwds(
@@ -1032,38 +1193,207 @@ class Tables:
             ind, input_ts=series, use_median=use_median, drainage_area=drainage_area
         )
         gtab = pd.DataFrame(gtab, index=[0]).T
+        self.g_table_metadata[new_g_table_name.upper()] = [
+            series_name,
+            "hydrologic_indices",
+            series.index[0],
+            series.index[-1],
+        ]
+        if self._normalize_bools(current_definitions) is True:
+            print(gtab)
         self._join(new_g_table_name, g_table=gtab)
 
     @typic.al
-    def list_output(self,
-                    file,
-                    series_name = None,
-                    series_format = "long",
-                    s_table_name = None,
-                    c_table_name = None,
-                    v_table_name = None,
-                    e_table_name = None,
-                    g_table_name = None,
-                   ):
+    def hydro_events(
+        self,
+        series_name: str,
+        new_series_name: str,
+        rise_lag,
+        fall_lag,
+        window: int = 1,
+        min_peak: int = 0,
+        date_1: str = None,
+        time_1: str = None,
+        date_2: str = None,
+        time_2: str = None,
+    ):
+        from hydrotoolbox.hydrotoolbox import storm_events
+
+        ts = pd.DataFrame(self._get_series(series_name))
+        ts = tsutils.common_kwds(
+            ts,
+            start_date=self._normalize_dates(date_1, time_1),
+            end_date=self._normalize_dates(date_2, time_2),
+        )
+        ts = storm_events(
+            rise_lag, fall_lag, input_ts=ts, window=window, min_peak=min_peak
+        )
+
+        self._join(new_series_name, series=ts)
+
+    @typic.al
+    def list_output(
+        self,
+        file,
+        series_name=None,
+        series_format="long",
+        s_table_name=None,
+        c_table_name=None,
+        v_table_name=None,
+        e_table_name=None,
+        g_table_name=None,
+    ):
         """
         List the output in the following order:
-            - series: list the series
-            - s_table: list the s_tables
-            - c_table: list the c_tables
-            - v_table: list the v_tables
-            - e_table: list the e_tables
-            - g_table: list the g_tables
+            - series: list all series
+            - s_table: list all s_tables
+            - c_table: list all c_tables
+            - v_table: list all v_tables
+            - e_table: list all e_tables
+            - g_table: list all g_tables
         """
-        return None
+        if isinstance(series_name, str):
+            series_name = [series_name]
+        elif series_name is None:
+            series_name = []
+        if isinstance(s_table_name, str):
+            s_table_name = [s_table_name]
+        elif s_table_name is None:
+            s_table_name = []
+        if isinstance(c_table_name, str):
+            c_table_name = [c_table_name]
+        elif c_table_name is None:
+            c_table_name = []
+        if isinstance(v_table_name, str):
+            v_table_name = [v_table_name]
+        elif v_table_name is None:
+            v_table_name = []
+        if isinstance(e_table_name, str):
+            e_table_name = [e_table_name]
+        elif e_table_name is None:
+            e_table_name = []
+        if isinstance(g_table_name, str):
+            g_table_name = [g_table_name]
+        elif g_table_name is None:
+            g_table_name = []
+
+        # Time series first
+        with open(file, "w") as fp:
+            for sern in series_name:
+                fp.write(f'\n TIME_SERIES "{sern}" ---->\n')
+                series = self._get_series(sern.upper())
+                start, end = self.series_dates[sern.upper()]
+                for index, value in series.loc[start:end].dropna().iteritems():
+                    if series_format == "long":
+                        fp.write(
+                            f" {sern}{index.strftime(self.date_format):>{28-len(sern)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
+                        )
+                    elif series_format == "short":
+                        fp.write(f" {value}\n")
+
+            for s_tab in s_table_name:
+                st = self.s_table[s_tab.upper()]
+                st.to_csv(fp)
+
+            for c_tab in c_table_name:
+                ct = self.c_table[c_tab.upper()]
+                ct.to_csv(fp)
+
+            for v_tab in v_table_name:
+                fp.write(
+                    f'\n V_TABLE "{v_tab}" ---->\n    Volumes calculated from series "{self.current_v_table_srcs[v_tab.upper()]}" are as follows:-\n'
+                )
+                v_table = self._get_v_table(v_tab.upper())
+                for index, value in v_table.dropna().iteritems():
+                    if series_format == "long":
+                        fp.write(
+                            f"    From {index[0].strftime(self.date_format)} {index[0].strftime('%H:%M:%S')} to {index[1].strftime(self.date_format)} {index[1].strftime('%H:%M:%S')}  volume = {value:0<13.13g}\n"
+                        )
+                    elif series_format == "short":
+                        fp.write(f" {value}\n")
+
+            for e_tab in e_table_name:
+                et = self.e_table[e_tab.upper()]
+                et.to_csv(fp)
+
+            for g_tab in g_table_name:
+                src, kind, start, end = self.g_table_metadata[g_tab.upper()]
+
+                if kind == "flow_duration":
+                    #  G_TABLE "mduration" ---->
+                    #    Flow-duration curve for series "mflow" (11/08/8672 to 11/07/8693)                     Value
+                    #    99.50% of flows exceed:                                                         4.912684
+                    fp.write(
+                        f"""
+ G_TABLE "{g_tab}" ---->
+   Flow-duration curve for series "{src}" ({start} to {end})   Value
+"""
+                    )
+                    g_table = self.g_table[g_tab.upper()]
+                    for index, value in g_table.dropna().iteritems():
+                        if series_format == "long":
+                            fp.write(
+                                f"   {index*100:5.02f}% of flows exceed:{value:>{90-len(index)}.15g}\n"
+                            )
+                        elif series_format == "short":
+                            fp.write(f" {value}\n")
+                elif kind == "hydrologic_indices":
+                    #  G_TABLE "mduration_p" ---->
+                    #    Hydrologic Index and description (Olden and Poff, 2003)                               Value
+                    #    MA16: Mean monthly flow May-Aug:                                                      4.912684
+                    fp.write(
+                        f"""
+ G_TABLE "{g_tab}" ---->
+   Hydrologic Index:description (Olden & Poff, 2003) {src} {start.strftime("%Y-%m-%d")} to {end.strftime("%Y-%m-%d")} {"Value":>{32-len(src)}}
+"""
+                    )
+                    g_table = self.g_table[g_tab.upper()]
+                    for index, value in g_table.dropna().iteritems():
+                        if series_format == "long":
+                            fp.write(f"   {index}:{value:>{107-len(index)}.15g}\n")
+                        elif series_format == "short":
+                            fp.write(f" {value}\n")
+
+    @typic.al
+    def new_series_uniform(
+        self,
+        new_series_name: str,
+        new_series_value: float,
+        time_interval: int,
+        time_unit: str,
+        date_1: str = None,
+        time_1: str = None,
+        date_2: str = None,
+        time_2: str = None,
+    ):
+        ptunit = {
+            "seconds": "S",
+            "minutes": "T",
+            "hours": "H",
+            "days": "D",
+            "months": "M",
+            "years": "Y",
+        }.get(time_unit, time_unit)
+        ptunit = f"{time_interval}{ptunit}"
+        dr = pd.date_range(
+            start=self._normalize_dates(date_1, time_1),
+            end=self._normalize_dates(date_2, time_2),
+            freq=ptunit,
+        )
+        ndf = pd.DataFrame(data=[new_series_value] * len(dr), index=dr)
+        self._join(new_series_name, series=ndf)
 
     @typic.al
     def new_time_base(
         self, series_name: str, new_series_name: str, tb_series_name: str
     ):
         tb_series = pd.DataFrame(self._get_series(tb_series_name))
+        start, end = self.series_dates[tb_series_name.upper()]
         series = pd.DataFrame(self._get_series(series_name))
-        nseries = series.reindex(series.index.union(tb_series.index)).astype(float)
-        nseries = nseries.interpolate(method='time', limit_direction='both').loc[tb_series.index]
+        nseries = tb_series.join(series, how="left").iloc[:, 1].astype(float)
+        nseries = nseries.interpolate(method="time", limit_direction="both").loc[
+            start:end
+        ]
         self._join(new_series_name, series=nseries)
 
     @typic.al
@@ -1141,6 +1471,28 @@ class Tables:
         self._join(new_series_name, series=series)
 
     @typic.al
+    def series_base_level(
+        self,
+        series_name: str,
+        substitute,
+        new_series_name: str,
+        base_level_series_name: str,
+        base_level_date: str,
+        base_level_time: str,
+        negate: bool = False,
+    ):
+        series = self._get_series(series_name)
+        base_level = self._get_series(base_level_series_name)
+        base = base_level[pd.to_datetime(f"{base_level_date} {base_level_time}")]
+        series = series - base
+        if self._normalize_bools(negate):
+            series = -series
+        if self._normalize_bools(substitute):
+            new_series_name = series_name
+            self.erase_entity(series=series_name)
+        self._join(new_series_name, series=series)
+
+    @typic.al
     def series_clean(
         self,
         series_name: str,
@@ -1156,6 +1508,133 @@ class Tables:
             series[series > lower_erase_boundary] = substitute_value
         if upper_erase_boundary is not None:
             series[series < upper_erase_boundary] = substitute_value
+        self._join(new_series_name, series=series)
+
+    @typic.al
+    def series_compare(
+        self,
+        series_name_sim: str,
+        series_name_obs: str,
+        new_c_table_name: str,
+        bias=False,
+        standard_error=False,
+        relative_bias=False,
+        relative_standard_error=False,
+        nash_sutcliffe=False,
+        coefficient_of_efficiency=False,
+        index_of_agreement=False,
+        volumetric_efficiency=False,
+        exponent=2,
+        series_name_base: str = "",
+        date_1: str = None,
+        time_1: str = None,
+        date_2: str = None,
+        time_2: str = None,
+    ):
+        series_sim = self._get_series(series_name_sim)
+        series_sim = tsutils.common_kwds(
+            series_sim,
+            start_date=self._normalize_dates(date_1, time_1),
+            end_date=self._normalize_dates(date_2, time_2),
+        )
+        series_obs = self._get_series(series_name_obs)
+        series_obs = tsutils.common_kwds(
+            series_obs,
+            start_date=self._normalize_dates(date_1, time_1),
+            end_date=self._normalize_dates(date_2, time_2),
+        )
+        if series_name_base:
+            series_base = self._get_series(series_name_base)
+            series_base = tsutils.common_kwds(
+                series_base,
+                start_date=self._normalize_dates(date_1, time_1),
+                end_date=self._normalize_dates(date_2, time_2),
+            )
+
+        c_table = [
+            "Bias:",
+            "Standard error:",
+            "Relative bias:",
+            "Relative standard error:",
+            "Nash-Sutcliffe coefficient:",
+            "Coefficient of efficiency:",
+            "Index of agreement:",
+            "Volumetric efficiency:",
+        ]
+
+        c_table = pd.DataFrame(data=[pd.NA] * len(c_table), index=c_table)
+
+        stats = {}
+        if self._normalize_bools(bias):
+            stats["Bias:"] = tstoolbox.gof(
+                stats="me", sim_col=series_sim, obs_col=series_obs
+            )[0][1]
+        if self._normalize_bools(standard_error):
+            stats["Standard error:"] = tstoolbox.gof(
+                stats="rmse", sim_col=series_sim, obs_col=series_obs
+            )[0][1]
+        if self._normalize_bools(relative_bias):
+            stats["Relative bias:"] = (
+                tstoolbox.gof(stats="me", sim_col=series_sim, obs_col=series_obs)[0][1]
+                / series_obs.mean()
+            )
+        if self._normalize_bools(relative_standard_error):
+            stats["Relative standard error:"] = tstoolbox.gof(
+                stats="nrmse_mean", sim_col=series_sim, obs_col=series_obs
+            )[0][1]
+        if self._normalize_bools(nash_sutcliffe):
+            stats["Nash-Sutcliffe coefficient:"] = tstoolbox.gof(
+                stats="nse", sim_col=series_sim, obs_col=series_obs
+            )[0][1]
+        if self._normalize_bools(coefficient_of_efficiency):
+            if exponent == 2:
+                stats["Coefficient of efficiency:"] = tstoolbox.gof(
+                    stats="lm_index", sim_col=series_sim, obs_col=series_obs
+                )[0][
+                    1
+                ]  # need to fix
+            elif exponent == 1:
+                stats["Coefficient of efficiency:"] = tstoolbox.gof(
+                    stats="lm_index", sim_col=series_sim, obs_col=series_obs
+                )[0][1]
+        if self._normalize_bools(index_of_agreement):
+            if exponent == 2:
+                stats["Index of agreement:"] = tstoolbox.gof(
+                    stats="d", sim_col=series_sim, obs_col=series_obs
+                )[0][1]
+            elif exponent == 1:
+                stats["Index of agreement:"] = tstoolbox.gof(
+                    stats="d1", sim_col=series_sim, obs_col=series_obs
+                )[0][1]
+        if self._normalize_bools(volumetric_efficiency):
+            stats["Volumetric efficiency:"] = tstoolbox.gof(
+                stats="ve", sim_col=series_sim, obs_col=series_obs
+            )[0][1]
+
+        nc_table = pd.DataFrame.from_dict(stats, orient="index")
+
+        self._join(new_c_table_name, c_table=nc_table)
+
+    @typic.al
+    def series_difference(
+        self,
+        series_name: str,
+        new_series_name: str,
+    ):
+        series = self._get_series(series_name)
+        series = series.diff()
+        self._join(new_series_name, series=series)
+
+    @typic.al
+    def series_displace(
+        self,
+        series_name,
+        new_series_name,
+        lag_increment: int,
+        fill_value,
+    ):
+        series = self._get_series(series_name)
+        series = series.shift(int(lag_increment))
         self._join(new_series_name, series=series)
 
     @typic.al
@@ -1300,6 +1779,88 @@ class Tables:
         )
         self._join(new_series_name, series=new_series)
 
+    @typic.al
+    def v_table_to_series(
+        self,
+        new_series_name,
+        v_table_name,
+        time_abscissa,
+    ):
+
+        v_table = self._get_v_table(v_table_name)
+        series = v_table  # FIX!
+        self._join(new_series_name, series=series)
+
+    @typic.al
+    def volume_calculation(
+        self,
+        series_name,
+        new_v_table_name,
+        flow_time_units,
+        date_file=None,
+        automatic_dates=None,
+        factor=1,
+    ):
+        if ((date_file is None) and (automatic_dates is None)) or (
+            (date_file is not None) and (automatic_dates is not None)
+        ):
+            raise ValueError(
+                tsutils.error_wrapper(
+                    """
+Must supply one of "DATE_FILE" or "AUTOMATIC_DATES" keyword options"""
+                )
+            )
+
+        series = self._get_series(series_name).dropna()
+
+        if automatic_dates:
+            mapping = {"year": "AS", "month": "MS", "day": "D"}
+            start_end = pd.date_range(
+                start=series.index[0],
+                end=series.index[-1],
+                freq=mapping[automatic_dates],
+            ).to_period()
+            start_end = [[i.start_time, i.end_time] for i in start_end]
+        if date_file:
+            start_end = []
+            with open(date_file, "r", encoding="ascii") as fp:
+                for line in fp.readlines():
+                    words = line.strip().split()
+                    start_end.append(
+                        [
+                            self._normalize_dates(words[0], words[1]),
+                            self._normalize_dates(words[2], words[3]),
+                        ]
+                    )
+
+        volume = []
+        for start, end in start_end:
+            nsend = pd.DatetimeIndex([start, end])
+            df = pd.DataFrame(
+                data=np.interp(
+                    nsend, series.index, np.array(series.values).astype(np.float64)
+                ),
+                index=nsend,
+            )
+            mask = (series.index > start) & (series.index < end)
+            df = df.merge(series[mask], how="outer", left_index=True, right_index=True)
+            df.iloc[0, 1] = df.iloc[0, 0]
+            df.iloc[-1, 1] = df.iloc[-1, 0]
+            df = pd.Series(df.iloc[:, 1])
+            dfindex = df.index.astype(np.int64) // 10**9
+            volume.append(np.trapz(df, x=dfindex) * float(factor))
+        start = [pd.to_datetime(i[0]) for i in start_end]
+        end = [pd.to_datetime(i[1]) for i in start_end]
+        series = pd.DataFrame(zip(start, end, volume))
+        series = series.set_index([0, 1])
+        series.index.names = ["start", "end"]
+        series.columns = [f"{series_name}"]
+        self._join(new_v_table_name, v_table=series)
+
+    @typic.al
+    def write_pest_files(self, *args, **kwargs):
+        return None
+
 
 def get_blocks(seq):
     """Return blocks of lines between "START ..." lines.
@@ -1334,7 +1895,7 @@ def get_blocks(seq):
     inblock = False
     data = []
     for index, line in enumerate(seq):
-        nline = line.rstrip()
+        nline = line.strip()
 
         # Handle comment lines and partial comment lines.  Everything from
         # a "#" to the end of the line is a comment.
@@ -1377,11 +1938,6 @@ def get_blocks(seq):
             data = []
 
 
-allowed_duplicate_keys = {
-    "hydrologic_indices": ["stream_classification", "flow_component"]
-}
-
-
 @mando.command()
 def run(infile, outfile=None, running_context=None):
     """Parse a tsproc file."""
@@ -1397,21 +1953,25 @@ def run(infile, outfile=None, running_context=None):
             rollable = True
             duplicates = False
             for line in group:
-                print(f"{line=}")
                 if line[1].lower() in ["settings"]:
                     break
                 if line[1].lower() in [
-                    "series_compare",
-                    "series_equation",
-                    "flow_duration",
-                    "write_pest_files",
-                    "hydrologic_indices",
                     "exceedance_time",
+                    "hydrologic_indices",
+                    "list_output",
+                    "write_pest_files",
+                    "flow_duration",
+                    "series_equation",
                 ]:
                     rollable = False
                 if line[1].lower() in [
+                    "get_mul_series_plotgen",
+                    "get_mul_series_gsflow_gage",
+                    "get_mul_series_ssf",
+                    "get_mul_series_statvar",
                     "exceedance_time",
                     "hydrologic_indices",
+                    "list_output",
                     "write_pest_files",
                 ]:
                     duplicates = True
@@ -1433,8 +1993,17 @@ def run(infile, outfile=None, running_context=None):
                     lnumbers.append(lnumber)
             else:
                 ngroup = []
+                ordered = OrderedDict()
                 for line in group[:-1]:
-                    ngroup.append(line)
+                    if duplicates is True:
+                        if line[0] in ordered.keys():
+                            ordered[line[0]].append(line[1])
+                        else:
+                            ordered[line[0]] = [line[1]]
+                    else:
+                        ngroup.append(line)
+                for key, value in ordered.items():
+                    ngroup.append([key] + value)
                 blocks.append(ngroup)
                 lnumbers.append(lnumber)
 
@@ -1446,6 +2015,7 @@ def run(infile, outfile=None, running_context=None):
                         running_context = bl[1]
                         break
                 break
+
     runblocks = []
     nnumbers = []
     for block, lnum in zip(blocks, lnumbers):
@@ -1465,8 +2035,8 @@ def run(infile, outfile=None, running_context=None):
         if data.block_name in deprecated:
             warning(
                 f"""
-                    The block "{data.block_name}" is deprecated within
-                    tsblender. {deprecated[data.block_name]}"""
+WARNING: The block "{data.block_name}" is deprecated within
+tsblender. {deprecated[data.block_name]}"""
             )
         args = [i.lower() for i in data.funcs[data.block_name]["args"]]
         kwds = {
@@ -1476,9 +2046,9 @@ def run(infile, outfile=None, running_context=None):
             raise ValueError(
                 tsutils.error_wrapper(
                     f"""
-                    All parameters in "{args}" are required for
-                    "{data.block_name}" at line {data.line_number}. You gave
-                    "{keys}"."""
+All parameters in "{args}" are required for
+"{data.block_name}" at line {data.line_number}. You gave
+"{keys}"."""
                 )
             )
         if all(item in args + list(kwds.keys()) for item in keys):
@@ -1502,12 +2072,22 @@ def run(infile, outfile=None, running_context=None):
         parameters = {key.lower(): val for key, val in kwds.items() if val is not None}
         del parameters["start"]
         del parameters["context"]
-        print(data.block_name, parameters)
+        if os.path.exists("debug_tsblender"):
+            print(f"PROCESSING: {data.block_name} {parameters}")
         data.funcs[data.block_name]["f"](**parameters)
-    print(data.series)
-    print(data.s_table)
-    print(data.g_table)
-    print(data.e_table)
+    if os.path.exists("debug_tsblender"):
+        print("\nTIME SERIES")
+        print(data.series)
+        print("\nS_TABLE")
+        print(data.s_table)
+        print("\nG_TABLE")
+        print(data.g_table)
+        print("\nE_TABLE")
+        print(data.e_table)
+        print("\nV_TABLE")
+        print(data.v_table)
+        print("\nC_TABLE")
+        print(data.c_table)
 
 
 def main():

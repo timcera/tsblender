@@ -5,7 +5,6 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.3.0
     hooks:
-      - id: check-added-large-files
       - id: check-case-conflict
       - id: check-docstring-first
       - id: check-executables-have-shebangs
@@ -53,7 +52,7 @@ repos:
       - id: blacken-docs
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v2.37.1
+    rev: v2.37.3
     hooks:
       - id: pyupgrade
 
@@ -76,7 +75,7 @@ repos:
       - id: pyroma
 
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v2.28.0
+    rev: v2.29.3
     hooks:
       - id: commitizen
         stages: [commit-msg]

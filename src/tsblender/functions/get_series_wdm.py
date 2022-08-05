@@ -134,7 +134,6 @@ def readWDM(wdmfile, hdffile, compress_output=False):
             pdatv = iarray[index + 11]
             frepos = iarray[index + pdat]
 
-            print(f"{dsn} reading from wdm")
             # get attributes
             dattr = {
                 "TSBDY": 1,
@@ -461,8 +460,6 @@ def get_wdm_data_set(wdmfile, attributes):
         pdat = iarray[index + 10]
         pdatv = iarray[index + 11]
         frepos = iarray[index + pdat]
-
-        print(f"{dsn} reading from wdm")
 
         # get attributes
         dattr = {

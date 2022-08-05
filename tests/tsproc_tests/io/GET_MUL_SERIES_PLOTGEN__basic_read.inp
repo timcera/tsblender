@@ -1,0 +1,19 @@
+START SETTINGS
+  CONTEXT all
+  DATE_FORMAT mm/dd/yyyy
+END SETTINGS
+
+
+###########################################################################
+# Process PLOTGEN file data....
+###########################################################################
+START GET_SERIES_PLOTGEN
+  CONTEXT all
+  FILE testdata.plt
+  LABEL GROUNDWATER INTERFLOW
+  NEW_SERIES_NAME groundwater interflow
+  DATE_1 6/1/1976
+  TIME_1 00:12:00
+  DATE_2 7/1/1976
+  TIME_2 00:12:00
+END GET_SERIES_PLOTGEN

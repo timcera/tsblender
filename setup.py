@@ -34,6 +34,7 @@ install_requires = [
     "swmmtoolbox",
     "tstoolbox",
     "pyemu",
+    "hydrotoolbox>1.1.0",
 ]
 
 extras_require = {

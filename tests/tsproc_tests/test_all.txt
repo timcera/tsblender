@@ -1,0 +1,166 @@
+
+ G_TABLE "test_g_table" ---->
+   Hydrologic Index and description (Olden and Poff, 2003)                               Value
+   MA1: Mean, all daily flows                                                      43.01752
+   MA2: Median, all daily flows                                                    37.00000
+   MA3: CV, all daily flows                                                        63.00398
+   MA4: CV, log of all daily flows                                                 32.74578
+   MA5: Mean daily flow / median daily flow                                        1.162636
+   MA6: Ratio, Q10 / Q90 for all daily flows                                       2.400000
+   MA7: Ratio, Q20 / Q80 for all daily flows                                       1.724138
+   MA8: Ratio, Q25 / Q75 for all daily flows                                       1.533333
+   MA9: (Q10 - Q90) / median daily flow                                           0.9459459
+   MA10: (Q20 - Q80) / median daily flow                                          0.5675676
+   MA11: (Q25 - Q75) / median daily flow                                          0.4324324
+   MA12: Mean monthly flow, January                                                32.68387
+   MA13: Mean monthly flow, February                                               40.85690
+   MA14: Mean monthly flow, March                                                  47.90645
+   MA15: Mean monthly flow, April                                                  51.83333
+   MA16: Mean monthly flow, May                                                    46.55484
+   MA17: Mean monthly flow, June                                                   52.66000
+   MA18: Mean monthly flow, July                                                   54.67419
+   MA19: Mean monthly flow, August                                                 42.45484
+   MA20: Mean monthly flow, September                                              38.75667
+   MA21: Mean monthly flow, October                                                35.70892
+   MA22: Mean monthly flow, November                                               38.13667
+   MA23: Mean monthly flow, December                                               34.02258
+   MA24: CV of monthly flow, January                                               17.77771
+   MA25: CV of monthly flow, February                                              49.83042
+   MA26: CV of monthly flow, March                                                 45.47674
+   MA27: CV of monthly flow, April                                                 30.82364
+   MA28: CV of monthly flow, May                                                   34.99957
+   MA29: CV of monthly flow, June                                                  45.29967
+   MA30: CV of monthly flow, July                                                  35.69326
+   MA31: CV of monthly flow, August                                                20.40509
+   MA32: CV of monthly flow, September                                             13.48803
+   MA33: CV of monthly flow, October                                               19.70646
+   MA34: CV of monthly flow, November                                              21.48024
+   MA35: CV of monthly flow, December                                              9.001379
+   MA36: Range mean monthly / median monthly flow                                  3.085062
+   MA37: IQR mean monthly / median monthly flow                                   0.4084905
+   MA38: (Q10 - Q90)[monthly] / median monthly flow                               0.8435825
+   MA39: CV, monthly mean flows                                                    40.30959
+   MA40: Skewness in monthly flows                                                0.1075032
+   MA41: Mean annual runoff                                                        1.034011
+   MA42: Range mean annual / median annual flow                                   0.7286557
+   MA43: IQR mean annual / median annual flow                                     0.1833358
+   MA44: (Q10 - Q90)[annual] / median annual flow                                 0.4696792
+   MA45: Skewness in annual flows                                                -0.1486679E-01
+   ML1: Mean minimum monthly flow, January                                         28.20000
+   ML2: Mean minimum monthly flow, February                                        27.50000
+   ML3: Mean minimum monthly flow, March                                           31.70000
+   ML4: Mean minimum monthly flow, April                                           36.00000
+   ML5: Mean minimum monthly flow, May                                             33.50000
+   ML6: Mean minimum monthly flow, June                                            33.70000
+   ML7: Mean minimum monthly flow, July                                            36.20000
+   ML8: Mean minimum monthly flow, August                                          35.50000
+   ML9: Mean minimum monthly flow, September                                       34.00000
+   ML10: Mean minimum monthly flow, October                                        30.40000
+   ML11: Mean minimum monthly flow, November                                       31.30000
+   ML12: Mean minimum monthly flow, December                                       30.20000
+   ML13: CV of minimum monthly flows                                               26.62055
+   ML14: Mean minimum daily flow / mean median annual flow                        0.6693528
+   ML15: Mean minimum annual flow / mean annual flow                              0.5813904
+   ML16: Median minimum annual flow / median annual flow                          0.6799658
+   ML17: 7-day minimum flow / mean annual flow                                    0.6088275
+   ML18: CV of ( 7-day minimum flow / mean annual flow )                           16.78384
+   ML19: Mean of (minimum annual flow / mean annual flow ) * 100                   58.13904
+   ML20: Ratio of baseflow volume to total flow volume                            0.8151591
+   ML21: CV of annual minimum flows                                                17.66089
+   ML22: Mean annual minimum flow divided by catchment area                       0.5889423
+   MH1: Mean maximum monthly flow, January                                         56.40000
+   MH2: Mean maximum monthly flow, February                                        133.6000
+   MH3: Mean maximum monthly flow, March                                           149.5000
+   MH4: Mean maximum monthly flow, April                                           119.3000
+   MH5: Mean maximum monthly flow, May                                             123.8000
+   MH6: Mean maximum monthly flow, June                                            172.8000
+   MH7: Mean maximum monthly flow, July                                            166.5000
+   MH8: Mean maximum monthly flow, August                                          84.40000
+   MH9: Mean maximum monthly flow, September                                       58.90000
+   MH10: Mean maximum monthly flow, October                                        67.40000
+   MH11: Mean maximum monthly flow, November                                       71.00000
+   MH12: Mean maximum monthly flow, December                                       43.00000
+   MH13: CV of maximum monthly flows                                               106.2575
+   MH14: Median maximum annual flow / median annual flow                           9.277412
+   MH15: Mean of Q1 values / median daily flow across all years                    4.377838
+   MH16: Mean of Q10 values / median daily flow across all years                   1.621622
+   MH17: Mean of Q25 values / median daily flow across all years                   1.243243
+   MH18: CV of logarithmic annual maximum flows                                    9.179849
+   MH19: Skewness in annual maximum flows                                        -0.1055266
+   MH20: Mean annual maximum flow / catchment area                                 8.819712
+   MH21: High-flow volume (thresh = 1 * median annual flow)                        6.602911
+   MH22: High-flow volume (thresh= 3 * median annual flow)                         4.465392
+   MH23: High-flow volume (thresh = 7 * median annual flow)                        5.613514
+   MH24: Maximum peak flow / median flow (thresh = 1 * median annual flow)         2.215460
+   MH25: Maximum peak flow / median flow (thresh = 3 * median annual flow)         5.961767
+   MH26: Maximum peak flow / median flow (thresh = 7 * median annual flow)         11.99189
+   MH27: Maximum peak flow / median flow (threshold = Q25)                         2.703522
+   FL1: Annual low flow pulse count; number of periods < 25th percentile           7.400000
+   FL2: CV of low flow pulse count                                                 79.61640
+   FL3: Num. low flow spells (< 5% of mean flow) / record length (yrs)             0.000000
+   FH1: Annual high flow pulse count; number of periods > 75th percentile          13.20000
+   FH2: CV of high flow pulse count                                                26.19455
+   FH3: Num. high flow spells (>3 * median annual flow)                            7.500000
+   FH4: Num. high flow spells (>7 * median annual flow)                            1.200000
+   FH5: Num. high flow spells (>1 * median annual flow) / record length (yrs)      14.30000
+   FH6: Num. high flow spells (>3 * median annual flow) / record length (yrs)      4.100000
+   FH7: Num. high flow spells (>7 * median annual flow) / record length (yrs)      1.000000
+   FH8: Num. high flow spells (>25th percentile flow) / record length (yrs)        13.20000
+   FH9: Num. high flow spells (>75th percentile flow) / record length (yrs)        8.300000
+   FH10: Num. high flow spells (>median of annual minima) / record length (yrs)    4.500000
+   DL1: Annual minimum of 1-day mean of flow                                       24.50000
+   DL2: Annual minimum of 3-day mean of flow                                       25.06667
+   DL3: Annual minimum of 7-day mean of flow                                       25.64286
+   DL4: Annual minimum of 30-day mean of flow                                      27.49000
+   DL5: Annual minimum of 90-day mean of flow                                      31.66251
+   DL6: CV, annual minimum of 1-day mean of flow                                   17.66089
+   DL7: CV, annual minimum of 3-day mean of flow                                   16.35632
+   DL8: CV, annual minimum of 7-day mean of flow                                   16.43690
+   DL9: CV, annual minimum of 30-day mean of flow                                  15.83311
+   DL10: CV, annual minimum of 90-day mean of flow                                 17.98834
+   DL11: Mean of 1-day minimum of flow                                            0.6621622
+   DL12: Mean of 7-day minimum of flow                                            0.6930502
+   DL13: Mean of 30-day minimum of flow                                           0.7429730
+   DL14: Mean of Q75 values / median daily flow across all years                  0.8108108
+   DL15: Mean of Q90 values / median daily flow across all years                  0.6756757
+   DL16: Low flow pulse duration (Mean duration of FL1)                            7.894737
+   DL17: CV, low flow pulse duration (DL16)                                        65.53337
+   DL18: Mean annual number of zero-flow days                                      0.000000
+   DL19: CV, mean annual number of zero-flow days                                  999999.0
+   DL20: Percentage of all months with zero flow                                   0.000000
+   DH1: Annual maximum of 1-day mean of flow                                       366.9000
+   DH2: Annual maximum of 3-day mean of flow                                       218.4667
+   DH3: Annual maximum of 7-day mean of flow                                       146.0833
+   DH4: Annual maximum of 30-day mean of flow                                      83.29230
+   DH5: Annual maximum of 90-day mean of flow                                      59.67363
+   DH6: CV, annual maximum of 1-day mean of flow                                   50.96885
+   DH7: CV, annual maximum of 3-day mean of flow                                   49.40653
+   DH8: CV, annual maximum of 7-day mean of flow                                   52.85322
+   DH9: CV, annual maximum of 30-day mean of flow                                  39.75370
+   DH10: CV, annual maximum of 90-day mean of flow                                 28.08941
+   DH11: Mean of 1-day maximum of flow                                             9.916216
+   DH12: Mean of 7-day maximum of flow                                             3.948198
+   DH13: Mean of 30-day maximum of flow                                            2.251143
+   DH14: Q95 value / mean monthly flow across all years                            1.702577
+   DH15: Mean duration of flood pulses > 75th percentile flow                      6.047697
+   DH16: CV, mean duration of high flow pulse (FH1)                                91.01601
+   DH17: Mean duration of flood pulses > 1 * median flow                           13.20982
+   DH18: Mean duration of flood pulses > 3 * median flow                           1.586667
+   DH19: Mean duration of flood pulses > 7 * median flow                           1.222222
+   DH20: Mean duration of flood pulses > 25th percentile of median flow            7.760480
+   DH21: Mean duration of flood pulses > 75th percentile of median flow            75.74219
+   TA1: Constancy (see Colwell, 1974)                                             0.7073236
+   TA2: Predictability of flow                                                     76.14510
+   TL1: Mean day-of-year of annual minimum                                         81.81363
+   TL2: CV, day-of-year of annual minimum                                          78.32667
+   TH1: Mean day-of-year of annual maximum                                         114.0811
+   TH2: CV, day-of-year of annual maximum                                          58.21406
+   RA1: Mean of positive changes from one day to next (rise rate)                  14.18360
+   RA2: CV, mean of positive changes from one day to next (rise rate)              294.4932
+   RA3: Mean of negative changes from one day to next (fall rate)                  6.972712
+   RA4: CV, mean of negative changes from one day to next (fall rate)              374.6531
+   RA5: Ratio of days that are higher than previous day                           0.2371303
+   RA6: Median of difference in log of flows over two consecutive days of rising  0.6187540E-01
+   RA7: Median of difference in log of flows over two consecutive days of falling 0.4546237E-01
+   RA8: Number of flow reversals from one day to the next                          100.1000
+   RA9: CV, number of flow reversals from one day to the next                      10.61900
