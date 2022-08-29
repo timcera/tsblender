@@ -2642,6 +2642,11 @@ TIME_1 0:00:00
 DATE_2 09/30/1999
 TIME_2 0:00:00
 END PERIOD_STATISTICS
+
+START ERASE_ENTITY
+CONTEXT obs_prep
+SERIES_NAME o_001_a o_001_m o_001_max o_001_mbf o_001_hyd
+END ERASE_ENTITY
 #############################
 # Compute period statistics #
 #############################
@@ -2733,6 +2738,11 @@ TIME_1 0:00:00
 DATE_2 09/26/1999
 TIME_2 0:00:00
 END HYDRO_EVENTS
+
+START ERASE_ENTITY
+CONTEXT obs_prep
+SERIES_NAME mon_o_001
+END ERASE_ENTITY
 #############################
 # Compute period statistics #
 #############################
@@ -2844,7 +2854,7 @@ END PERIOD_STATISTICS
 START PERIOD_STATISTICS
 CONTEXT obs_prep
 SERIES_NAME o_002_d
-NEW_SERIES_NAME o_002_a
+NEW_SERIES_NAME o_002_ap
 STATISTIC mean
 PERIOD year
 YEAR_TYPE water_high
@@ -2860,7 +2870,7 @@ END PERIOD_STATISTICS
 START PERIOD_STATISTICS
 CONTEXT obs_prep
 SERIES_NAME o_002_d
-NEW_SERIES_NAME o_002_m
+NEW_SERIES_NAME o_002_mp
 STATISTIC mean
 PERIOD month_many
 TIME_ABSCISSA start
@@ -2875,7 +2885,7 @@ END PERIOD_STATISTICS
 START PERIOD_STATISTICS
 CONTEXT obs_prep
 SERIES_NAME o_002_d
-NEW_SERIES_NAME o_002_max
+NEW_SERIES_NAME o_002_maxp
 STATISTIC maximum
 PERIOD month_many
 TIME_ABSCISSA start
@@ -33877,7 +33887,7 @@ SERIES_NAME o_148_max
 SERIES_NAME o_148_mbf
 SERIES_NAME o_148_hyd
 SERIES_NAME mon_o_148
-END LIST_OUTPUT_BLOCK
+END LIST_OUTPUT
 #
 #################################
 # Resample the simulated series #
@@ -57916,7 +57926,7 @@ SERIES_NAME s_148_max
 SERIES_NAME s_148_mbf
 SERIES_NAME s_148_hyd
 SERIES_NAME mon_s_148
-END LIST_OUTPUT_BLOCK
+END LIST_OUTPUT
 #
 ####################
 # Write pest files #

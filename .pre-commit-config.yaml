@@ -75,7 +75,7 @@ repos:
       - id: pyroma
 
   - repo: https://github.com/commitizen-tools/commitizen
-    rev: v2.29.3
+    rev: v2.31.0
     hooks:
       - id: commitizen
         stages: [commit-msg]

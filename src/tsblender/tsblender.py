@@ -6,13 +6,14 @@ import os.path
 import sys
 import warnings
 from collections import OrderedDict
-from typing import List, Literal, Optional, Union
+from typing import Literal, Optional, Union
 
-import mando
+import cltoolbox
 import numpy as np
 import pandas as pd
 import typic
 from dateutil.parser import parse
+from hydrotoolbox import hydrotoolbox
 from tstoolbox import tstoolbox, tsutils
 
 from .functions.get_series_plotgen import readPLTGEN as _get_series_plotgen
@@ -26,7 +27,7 @@ def warning(message: str):
     print(tsutils.error_wrapper(message), file=sys.stderr)
 
 
-@mando.command()
+@cltoolbox.command()
 def about():
     """Display version number and system information."""
     tsutils.about(__name__)
@@ -40,18 +41,40 @@ deprecated = {
 }
 
 
+def natural_keys(text):
+    words = text.split(":")
+    lets = words[0][:2]
+    nums = words[0][2:]
+    if len(nums) == 1:
+        nums = "0" + nums
+    return lets + nums
+
+
 class Tables:
     def __init__(self):
         self.series = {}
-        self.series_dates = {}
-        self.v_table = pd.DataFrame()
-        self.c_table = pd.DataFrame()
-        self.s_table = pd.DataFrame()
-        self.e_table = pd.DataFrame()
-        self.g_table = pd.DataFrame()
         self.current_series = {}
-        self.current_v_table_srcs = {}
+        self.series_dates = {}
+
+        self.v_table = pd.DataFrame()
+        self.v_table_metadata = {}
+
+        self.c_table = pd.DataFrame()
+        self.c_table_metadata = pd.DataFrame()
+
+        self.s_table = pd.DataFrame()
+        self.s_table_metadata = {}
+
+        self.e_table = pd.DataFrame()
+        self.e_table_tot = pd.DataFrame()
+        self.e_table_metadata = {}
+
+        self.g_table = pd.DataFrame()
         self.g_table_metadata = {}
+
+        self.date_format = "%Y-%m-%d"
+        self.line_number = 0
+        self.block_name = ""
 
         self.funcs = {
             "SETTINGS": {
@@ -105,9 +128,10 @@ class Tables:
                 "args": [
                     "CONTEXT",
                     "SERIES_NAME",
-                    "NEW_G_TABLE_NAME",
                 ],
                 "kwds": {
+                    "NEW_G_TABLE_NAME": None,
+                    "NEW_TABLE_NAME": None,
                     "EXCEEDANCE_PROBABILITIES": [
                         99.5,
                         99,
@@ -585,6 +609,7 @@ class Tables:
         c_table=None,
         s_table=None,
         e_table=None,
+        e_table_tot=None,
         g_table=None,
     ):
         new_name = new_name.strip().upper()
@@ -601,7 +626,6 @@ class Tables:
         if v_table is not None:
             if new_name in self.v_table:
                 raise ValueError(f"{new_name} is already a named v_table")
-            self.current_v_table_srcs[new_name] = v_table.columns[0]
             v_table = pd.DataFrame(v_table)
             v_table.columns = [new_name]
             try:
@@ -621,11 +645,15 @@ class Tables:
                 raise ValueError(f"{inname} is already a named s_table")
             self.s_table = self.s_table.join(s_table, how="outer")
         if e_table is not None:
-            e_table.columns = [new_name]
             inname = e_table.columns[0]
             if inname in self.e_table.columns:
                 raise ValueError(f"{inname} is already a named e_table")
             self.e_table = self.e_table.join(e_table, how="outer")
+        if e_table_tot is not None:
+            inname = e_table_tot.columns[0]
+            if inname in self.e_table_tot.columns:
+                raise ValueError(f"{inname} is already a named e_table")
+            self.e_table_tot = self.e_table_tot.join(e_table_tot, how="outer")
         if g_table is not None:
             if new_name in self.g_table:
                 raise ValueError(f"{new_name} is already a named g_table")
@@ -641,12 +669,14 @@ class Tables:
             return None
         if time is None:
             time = "00:00:00"
-        hh, mm, ss = time.split(":")
+        hours, minutes, seconds = time.split(":")
         delta = pd.Timedelta(days=0)
-        if int(hh) == 24:
-            time = f"00:{int(mm):02}:{int(ss):02}"
+        if int(hours) == 24:
+            hours = 0
             delta = pd.Timedelta(days=1)
-        return (parse(f"{date} {time}") + delta).isoformat()
+        return (
+            parse(f"{date} {int(hours):02}:{int(minutes):02}:{int(seconds):02}") + delta
+        ).isoformat()
 
     def _normalize_bools(self, torf):
         if torf is True or torf is False:
@@ -699,7 +729,6 @@ class Tables:
         self._there_can_be_only_one(
             test, "'POWER' or any of the following: 'MAXMEAN_n', 'MINMEAN_n'"
         )
-
         series = self._get_series(series_name)
         series = series.asfreq(series.index.freqstr)
 
@@ -742,94 +771,179 @@ class Tables:
     @typic.al
     def erase_entity(
         self,
-        series: Optional[str] = None,
-        v_table: Optional[str] = None,
-        c_table: Optional[str] = None,
-        s_table: Optional[str] = None,
-        e_table: Optional[str] = None,
-        g_table: Optional[str] = None,
+        series_name: Optional[str] = None,
+        v_table_name: Optional[str] = None,
+        c_table_name: Optional[str] = None,
+        s_table_name: Optional[str] = None,
+        e_table_name: Optional[str] = None,
+        g_table_name: Optional[str] = None,
     ):
-        if series is not None:
-            series = series.upper()
+        if series_name is not None:
+            series = series_name.upper()
             self.series[self.current_series[series]] = self.series[
                 self.current_series[series]
             ].drop(series, axis="columns")
+            del self.current_series[series]
             del self.series_dates[series]
-        if v_table is not None:
-            self.v_table = self.v_table.drop(v_table.upper(), axis="columns")
-        if c_table is not None:
-            self.c_table = self.c_table.drop(c_table.upper(), axis="columns")
-        if s_table is not None:
-            self.s_table = self.s_table.drop(s_table.upper(), axis="columns")
-        if e_table is not None:
-            self.e_table = self.e_table.drop(e_table.upper(), axis="columns")
-        if g_table is not None:
-            self.g_table = self.g_table.drop(g_table.upper(), axis="columns")
+
+        if v_table_name is not None:
+            self.v_table = self.v_table.drop(v_table_name.upper(), axis="columns")
+            del self.v_table_metadata[v_table_name.upper()]
+
+        if c_table_name is not None:
+            self.c_table = self.c_table.drop(c_table_name.upper(), axis="columns")
+            del self.c_table_metadata[c_table_name.upper()]
+
+        if s_table_name is not None:
+            self.s_table = self.s_table.drop(s_table_name.upper(), axis="columns")
+            del self.s_table_metadata[s_table_name.upper()]
+
+        if e_table_name is not None:
+            self.e_table = self.e_table.drop(e_table_name.upper(), axis="columns")
+            self.e_table_tot = self.e_table_tot.drop(
+                e_table_name.upper(), axis="columns"
+            )
+            del self.e_table_metadata[e_table_name.upper()]
+
+        if g_table_name is not None:
+            self.g_table = self.g_table.drop(g_table_name.upper(), axis="columns")
+            del self.g_table_metadata[g_table_name.upper()]
 
     @typic.al
     def exceedance_time(
         self,
         series_name: str,
         new_e_table_name: str,
-        exceedance_time_units: Literal["year", "month", "day", "hour", "min", "sec"],
+        exceedance_time_units: Literal[
+            "year",
+            "month",
+            "day",
+            "hour",
+            "min",
+            "sec",
+            "years",
+            "months",
+            "days",
+            "hours",
+            "mins",
+            "secs",
+        ],
         under_over: Literal["over", "under"] = "over",
         **flow_delay,
     ):
-        from hydrotoolbox.hydrotoolbox import exceedance_time
-
         series = self._get_series(series_name)
 
-        input_flow = [float(flow_delay.get("flow", None))]
-        input_delay = 0
+        year = datetime.timedelta(days=365, hours=6, minutes=9, seconds=9)
+        punits = {
+            "year": year,
+            "month": year / 12,
+            "day": datetime.timedelta(days=1),
+            "hour": datetime.timedelta(hours=1),
+            "min": datetime.timedelta(minutes=1),
+            "sec": datetime.timedelta(seconds=1),
+        }[exceedance_time_units.lower().rstrip("s")]
 
-        ans = exceedance_time(
+        input_flow = flow_delay.get("flow", None)
+        input_flow = tsutils.make_list(input_flow)
+        if isinstance(input_flow, (int, float)):
+            input_flow = [input_flow]
+
+        input_delay = flow_delay.get("delay", 0)
+        if isinstance(input_delay, (int, float)):
+            input_delay = [input_delay]
+        if input_delay == [0]:
+            input_delay = [0] * len(input_flow)
+
+        e_table = hydrotoolbox.exceedance_time(
             *input_flow,
             input_ts=series,
             time_units=exceedance_time_units,
             under_over=under_over,
             delays=input_delay,
         )
-        k = []
-        v = []
-        for i in ans.keys():
-            k.append(i)
-            v.append(ans[i])
-        ans = pd.DataFrame(v, index=k)
-        self._join(new_e_table_name, e_table=ans)
+
+        # LIST_OUTPUT includes a fraction of the total time column and this is
+        # an easy way (by using series.min or series.max) to get the total
+        # time.
+        if under_over == "over":
+            tot_threshold = series.min()
+        else:
+            tot_threshold = series.max()
+        tot_table = hydrotoolbox.exceedance_time(
+            tot_threshold,
+            input_ts=series,
+            time_units=exceedance_time_units,
+            under_over=under_over,
+            delays=[0],
+        )
+
+        input_delay = [i * punits for i in input_delay]
+
+        keys = []
+        etv = []
+        e_totv = []
+        for flw, dly in zip(input_flow, input_delay):
+            keys.append((flw, dly / punits))
+            etv.append(e_table[flw])
+            e_totv.append(e_table[flw] / tot_table[tot_threshold])
+
+        # Create and join the new e_table.
+        e_table = pd.DataFrame(etv, index=keys)
+        e_table.columns = [new_e_table_name.upper()]
+        self._join(new_e_table_name, e_table=e_table)
+
+        # Create and join the new e_table_tot for LIST_OUTPUT.
+        e_table_tot = pd.DataFrame(e_totv, index=keys)
+        e_table_tot.columns = [new_e_table_name.upper()]
+        self._join(new_e_table_name, e_table_tot=e_table_tot)
+
+        # This is here only to be able to include the time units in the
+        # LIST_OUTPUT.
+        self.e_table_metadata[new_e_table_name.upper()] = {
+            "exceedance_time_units": exceedance_time_units,
+            "source": series_name,
+            "under_over": under_over,
+        }
 
     @typic.al
     def flow_duration(
         self,
         series_name: str,
-        new_g_table_name: str,
+        new_g_table_name: str = None,
+        new_table_name: str = None,
         exceedance_probabilities=(99.5, 99, 98, 95, 90, 75, 50, 25, 10, 5, 2, 1, 0.5),
         date_1=None,
         time_1=None,
         date_2=None,
         time_2=None,
     ):
-        from hydrotoolbox.hydrotoolbox import flow_duration
+        self._there_can_be_only_one(
+            [new_g_table_name, new_table_name], '"new_g_table_name" or "new_table_name"'
+        )
+
+        new_g_table_name = new_g_table_name or new_table_name
 
         series = self._get_series(series_name)
-
         series = tsutils.common_kwds(
             series,
             start_date=self._normalize_dates(date_1, time_1),
             end_date=self._normalize_dates(date_2, time_2),
         )
+
         exceedance_probabilities = [float(i) for i in exceedance_probabilities]
-        ans = flow_duration(
+
+        ans = hydrotoolbox.flow_duration(
             input_ts=series,
             exceedance_probabilities=exceedance_probabilities,
         )
-        ans.columns = [series_name]
-        self.g_table_metadata[new_g_table_name.upper()] = [
-            series_name,
-            "flow_duration",
-            series.index[0],
-            series.index[-1],
-        ]
+
         self._join(new_g_table_name, g_table=ans)
+        self.g_table_metadata[new_g_table_name.upper()] = {
+            "source": series_name,
+            "kind": "flow_duration",
+            "start_date": series.index[0],
+            "end_date": series.index[-1],
+        }
 
     @typic.al
     def get_series_csv(
@@ -885,6 +999,7 @@ class Tables:
             header=None,
             names=headers,
             index_col=0,
+            engine="c",
         )
 
         unit = pd.Timedelta(1, "D") / time_units_per_day
@@ -902,7 +1017,18 @@ class Tables:
         )
 
         for dt, nsn in zip(data_type, new_series_name):
-            nts = ts[dt]
+            try:
+                nts = ts[dt.upper()]
+            except KeyError as exc:
+                raise KeyError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The time-series with variable name "{dt.upper()}" is
+                        not available in file "{file}". The available
+                        time-series are {ts.columns}.
+                        """
+                    )
+                ) from exc
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
@@ -910,20 +1036,25 @@ class Tables:
     def get_series_statvar(
         self,
         file: str,
-        variable_name: str,
-        location_id: int,
-        new_series_name: str,
+        variable_name,
+        location_id,
+        new_series_name,
         date_1: str = None,
         time_1: str = None,
         date_2: str = None,
         time_2: str = None,
     ):
+        # Of the repeated keywords, make sure if there is a single item that it
+        # is a list.
         if isinstance(variable_name, str):
             variable_name = [variable_name]
-        if isinstance(location_id, int):
+        if isinstance(location_id, (int, str)):
             location_id = [location_id]
         if isinstance(new_series_name, str):
             new_series_name = [new_series_name]
+
+        # Need this to calculate "skiprows" in pd.read_csv and "headers" to
+        # later rename the columns to.
         with open(file, "r") as f:
             num_series = int(f.readline().strip())
             collect = []
@@ -931,6 +1062,10 @@ class Tables:
                 unique_id = f.readline().strip().split()
                 collect.append(unique_id)
         headers = ["_".join(i) for i in collect]
+
+        # Leave setting the index columns and headers to later since want
+        # pd.read_csv to parse the dates from 6 columns which creates a new
+        # column and messes with the order of the columns.
         ts = pd.read_csv(
             file,
             skiprows=num_series + 1,
@@ -938,20 +1073,39 @@ class Tables:
             sep=r"\s+",
             parse_dates=[[1, 2, 3, 4, 5, 6]],
             date_parser=lambda x: pd.to_datetime(x, format="%Y %m %d %H %M %S"),
+            engine="c",
         )
         ts = ts.set_index("1_2_3_4_5_6")
         ts = ts.drop(columns=[0])
         ts.index.name = "Datetime"
         ts.columns = headers
+
+        # Use tsutils.common_kwds to subset the time period.
         ts = tsutils.common_kwds(
             ts,
             start_date=self._normalize_dates(date_1, time_1),
             end_date=self._normalize_dates(date_2, time_2),
         )
+
+        # Create a new DataFrame for each variable_name, location_id, and
+        # new_series_name and join to the correct global DataFrame.
+        # Update series metadata in self.series_dates.
         for vn, lid, nsn in zip(variable_name, location_id, new_series_name):
-            nts = ts[f"{vn}_{lid}"]
-            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
+            try:
+                nts = ts[f"{vn}_{lid}"]
+            except KeyError:
+                raise KeyError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The time-series with variable name "{vn}" and location
+                        ID "{lid}" forms the column name "{vn}_{lid}" and is
+                        not available in file "{file}". The available
+                        time-series are {ts.columns}.
+                        """
+                    )
+                )
             self._join(nsn.upper(), series=nts)
+            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
 
     @typic.al
     def get_series_hspfbin(
@@ -979,7 +1133,8 @@ class Tables:
                 tsutils.error_wrapper(
                     f"""
                     No data found in the file when processing the block
-                    {self.block_name} at line number {self.line_number}."""
+                    {self.block_name} at line number {self.line_number}.
+                    """
                 )
             )
         ts = tsutils.common_kwds(
@@ -993,7 +1148,7 @@ class Tables:
     def get_series_plotgen(
         self,
         file: str,
-        label: str,
+        label,
         new_series_name: str,
         date_1: Optional[str] = None,
         time_1: Optional[str] = None,
@@ -1004,14 +1159,24 @@ class Tables:
             label = [label]
         if isinstance(new_series_name, str):
             new_series_name = [new_series_name]
-        ts = _get_series_plotgen(file)[label]
+        ts = _get_series_plotgen(file)
         ts = tsutils.common_kwds(
             ts,
             start_date=self._normalize_dates(date_1, time_1),
             end_date=self._normalize_dates(date_2, time_2),
         )
         for lb, nsn in zip(label, new_series_name):
-            nts = ts[lb]
+            try:
+                nts = ts[lb]
+            except KeyError:
+                raise KeyError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The time-series "{lb}" is not available in file
+                        "{file}". The available time-series are {ts.columns}.
+                        """
+                    )
+                )
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
@@ -1019,8 +1184,8 @@ class Tables:
     def get_series_ssf(
         self,
         file: str,
-        site: str,
-        new_series_name: str,
+        site,
+        new_series_name,
         date_1: Optional[str] = None,
         time_1: Optional[str] = None,
         date_2: Optional[str] = None,
@@ -1035,8 +1200,9 @@ class Tables:
             header=None,
             parse_dates=[[1, 2]],
             index_col=[0],
-            sep="\t",
+            sep=r"\s+",
             dtype={0: str},
+            engine="c",
         )
         try:
             ts = ts.pivot_table(
@@ -1049,8 +1215,10 @@ class Tables:
             raise ValueError(
                 tsutils.error_wrapper(
                     f"""
-Duplicate index (time stamp and '{ts.columns[0]}') were found. Found these
-duplicate indices: {ts.index.get_duplicates()}"""
+                    Duplicate index (time stamp and '{ts.columns[0]}') were
+                    found. Found these duplicate indices:
+                    {ts.index.get_duplicates()}
+                    """
                 )
             )
         ts.index.name = "Datetime"
@@ -1063,14 +1231,17 @@ duplicate indices: {ts.index.get_duplicates()}"""
         )
         ts.index = ts.index.to_period(ts.index[1] - ts.index[0]).to_timestamp()
         for st, nsn in zip(site, new_series_name):
-            if st not in list(ts.columns):
-                raise ValueError(
+            try:
+                nts = ts[st]
+            except KeyError:
+                raise KeyError(
                     tsutils.error_wrapper(
                         f"""
-The site name "{st}" is not in the available sites "{ts.columns}"."""
+                        The time-series "{st}" is not available in file
+                        "{file}". The available time-series are {ts.columns}.
+                        """
                     )
                 )
-            nts = ts[st]
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
@@ -1152,8 +1323,6 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
         time_2=None,
         current_definitions=False,
     ):
-        from hydrotoolbox.hydrotoolbox import indices
-
         mapper = {
             "MA": ma,
             "ML": ml,
@@ -1189,19 +1358,26 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
             start_date=self._normalize_dates(date_1, time_1),
             end_date=self._normalize_dates(date_2, time_2),
         )
-        gtab = indices(
+
+        gtab = hydrotoolbox.indices(
             ind, input_ts=series, use_median=use_median, drainage_area=drainage_area
         )
         gtab = pd.DataFrame(gtab, index=[0]).T
-        self.g_table_metadata[new_g_table_name.upper()] = [
-            series_name,
-            "hydrologic_indices",
-            series.index[0],
-            series.index[-1],
-        ]
+
+        # Undocumented feature of TSPROC: if current_definitions is True, then
+        # the g_table gtab is printed to the screen.
         if self._normalize_bools(current_definitions) is True:
             print(gtab)
+
         self._join(new_g_table_name, g_table=gtab)
+
+        # The g_table_metadata is to collect information for LIST_OUTPUT.
+        self.g_table_metadata[new_g_table_name.upper()] = {
+            "source": series_name,
+            "kind": "hydrologic_indices",
+            "start_date": series.index[0],
+            "end_date": series.index[-1],
+        }
 
     @typic.al
     def hydro_events(
@@ -1217,15 +1393,13 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
         date_2: str = None,
         time_2: str = None,
     ):
-        from hydrotoolbox.hydrotoolbox import storm_events
-
         ts = pd.DataFrame(self._get_series(series_name))
         ts = tsutils.common_kwds(
             ts,
             start_date=self._normalize_dates(date_1, time_1),
             end_date=self._normalize_dates(date_2, time_2),
         )
-        ts = storm_events(
+        ts = hydrotoolbox.storm_events(
             rise_lag, fall_lag, input_ts=ts, window=window, min_peak=min_peak
         )
 
@@ -1278,46 +1452,105 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
             g_table_name = []
 
         # Time series first
-        with open(file, "w") as fp:
+        with open(file, "w", encoding="utf-8") as fp:
             for sern in series_name:
                 fp.write(f'\n TIME_SERIES "{sern}" ---->\n')
                 series = self._get_series(sern.upper())
                 start, end = self.series_dates[sern.upper()]
                 for index, value in series.loc[start:end].dropna().iteritems():
                     if series_format == "long":
+                        date = index.strftime(self.date_format)
+                        time = index.strftime("%H:%M:%S")
                         fp.write(
-                            f" {sern}{index.strftime(self.date_format):>{28-len(sern)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
+                            f" {sern}{date:>{28-len(sern)}}   {time} {value:<13.13g}\n"
                         )
                     elif series_format == "short":
                         fp.write(f" {value}\n")
 
             for s_tab in s_table_name:
-                st = self.s_table[s_tab.upper()]
-                st.to_csv(fp)
+                s_TAB = s_tab.upper()
+                st = self.s_table[s_TAB].dropna()
+                source_name = self.s_table_metadata[s_TAB]["source_name"]
+                start_date = self.s_table_metadata[s_TAB]["start_date"].strftime(
+                    "%Y-%m-%d"
+                )
+                end_date = self.s_table_metadata[s_TAB]["end_date"].strftime("%Y-%m-%d")
+                log_transformed = self.s_table_metadata[s_TAB]["log_transformed"]
+                exponent = self.s_table_metadata[s_TAB]["exponent"]
+                fp.write(
+                    f"""
+ S_TABLE "{s_tab}" ---->
+     Series for which data calculated:               {source_name}
+     Starting date for data accumulation:            {start_date}
+     Ending date for data accumulation               {end_date}
+     Logarithmic transformation of series?           {log_transformed}
+     Exponent in power transformation:               {exponent}
+"""
+                )
+                for index, value in st.iteritems():
+                    fp.write(
+                        f"     {s_tab}{index:>{28-len(s_tab)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
+                    )
 
             for c_tab in c_table_name:
-                ct = self.c_table[c_tab.upper()]
-                ct.to_csv(fp)
+                c_TAB = c_tab.upper()
+                stats = self.c_table[c_TAB].dropna()
+                obs_name = self.c_table_metadata[c_TAB]["obs_name"]
+                sim_name = self.c_table_metadata[c_TAB]["sim_name"]
+                start_date = self.c_table_metadata[c_TAB]["start_date"].strftime(
+                    "%Y-%m-%d"
+                )
+                end_date = self.c_table_metadata[c_TAB]["end_date"].strftime("%Y-%m-%d")
+                fp.write(
+                    f"""
+ C_TABLE "{c_tab}" ---->
+     Observation time series name:                    {obs_name}
+     Simulation time series name:                     {sim_name}
+     Beginning time of series comparison:             {start_date}
+     Finishing time of series comparison:             {end_date}
+"""
+                )
+                for index, value in stats.iteritems():
+                    fp.write(
+                        f"     {c_tab}{index:>{28-len(c_tab)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
+                    )
 
             for v_tab in v_table_name:
                 fp.write(
-                    f'\n V_TABLE "{v_tab}" ---->\n    Volumes calculated from series "{self.current_v_table_srcs[v_tab.upper()]}" are as follows:-\n'
+                    f"""
+ V_TABLE "{v_tab}" ---->
+     Volumes calculated from series "{self.v_table_metadata[v_tab.upper()]["source_name"]}" are as follows:-
+"""
                 )
                 v_table = self._get_v_table(v_tab.upper())
                 for index, value in v_table.dropna().iteritems():
-                    if series_format == "long":
-                        fp.write(
-                            f"    From {index[0].strftime(self.date_format)} {index[0].strftime('%H:%M:%S')} to {index[1].strftime(self.date_format)} {index[1].strftime('%H:%M:%S')}  volume = {value:0<13.13g}\n"
-                        )
-                    elif series_format == "short":
-                        fp.write(f" {value}\n")
+                    fp.write(
+                        f"    From {index[0].strftime(self.date_format)} {index[0].strftime('%H:%M:%S')} to {index[1].strftime(self.date_format)} {index[1].strftime('%H:%M:%S')}  volume = {value:0<13.13g}\n"
+                    )
 
             for e_tab in e_table_name:
-                et = self.e_table[e_tab.upper()]
-                et.to_csv(fp)
+                e_TAB = self.e_table[e_tab.upper()]
+                et_tot = self.e_table_tot[e_tab.upper()]
+                units = self.e_table_metadata[e_tab.upper()]["exceedance_time_units"]
+                direction = {"over": "above", "under": "below"}[
+                    self.e_table_metadata[e_tab.upper()]["under_over"]
+                ]
+                fp.write(
+                    f"""
+ E_TABLE "{e_tab}" ---->
+   Flow           Time delay ({units})    Time {direction} ({units})   Fraction of time {direction} threshold
+"""
+                )
+                for index, value in e_TAB.dropna().iteritems():
+                    fp.write(
+                        f"   {index[0]:<7g}          {index[1]:<7.4f}{value:>25.12g}{et_tot[index]:>25.10g}\n"
+                    )
 
             for g_tab in g_table_name:
-                src, kind, start, end = self.g_table_metadata[g_tab.upper()]
+                src = self.g_table_metadata[g_tab.upper()]["source"]
+                kind = self.g_table_metadata[g_tab.upper()]["kind"]
+                start_date = self.g_table_metadata[g_tab.upper()]["start_date"]
+                end_date = self.g_table_metadata[g_tab.upper()]["end_date"]
 
                 if kind == "flow_duration":
                     #  G_TABLE "mduration" ---->
@@ -1326,17 +1559,15 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
                     fp.write(
                         f"""
  G_TABLE "{g_tab}" ---->
-   Flow-duration curve for series "{src}" ({start} to {end})   Value
+   Flow-duration curve for series "{src}" ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")})   Value
 """
                     )
-                    g_table = self.g_table[g_tab.upper()]
+                    g_table = self.g_table[g_tab.upper()].dropna()
+                    g_table = g_table.sort_index(ascending=False)
                     for index, value in g_table.dropna().iteritems():
-                        if series_format == "long":
-                            fp.write(
-                                f"   {index*100:5.02f}% of flows exceed:{value:>{90-len(index)}.15g}\n"
-                            )
-                        elif series_format == "short":
-                            fp.write(f" {value}\n")
+                        fp.write(
+                            f"   {index*100:5.02f}% of flows exceed:{value:>60.15g}\n"
+                        )
                 elif kind == "hydrologic_indices":
                     #  G_TABLE "mduration_p" ---->
                     #    Hydrologic Index and description (Olden and Poff, 2003)                               Value
@@ -1344,15 +1575,16 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
                     fp.write(
                         f"""
  G_TABLE "{g_tab}" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) {src} {start.strftime("%Y-%m-%d")} to {end.strftime("%Y-%m-%d")} {"Value":>{32-len(src)}}
+   Hydrologic Index:description (Olden & Poff, 2003) {src} {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} {"Value":>{32-len(src)}}
 """
                     )
-                    g_table = self.g_table[g_tab.upper()]
-                    for index, value in g_table.dropna().iteritems():
-                        if series_format == "long":
-                            fp.write(f"   {index}:{value:>{107-len(index)}.15g}\n")
-                        elif series_format == "short":
-                            fp.write(f" {value}\n")
+
+                    g_table = self.g_table[g_tab.upper()].dropna()
+                    sindex = sorted(g_table.index, key=natural_keys)
+                    g_table = g_table.loc[sindex]
+
+                    for index, value in g_table.iteritems():
+                        fp.write(f"   {index}:{value:>{107-len(index)}.15g}\n")
 
     @typic.al
     def new_series_uniform(
@@ -1375,24 +1607,23 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
             "years": "Y",
         }.get(time_unit, time_unit)
         ptunit = f"{time_interval}{ptunit}"
-        dr = pd.date_range(
+        ndr = pd.date_range(
             start=self._normalize_dates(date_1, time_1),
             end=self._normalize_dates(date_2, time_2),
             freq=ptunit,
         )
-        ndf = pd.DataFrame(data=[new_series_value] * len(dr), index=dr)
+        ndf = pd.DataFrame(data=[new_series_value] * len(ndr), index=ndr)
         self._join(new_series_name, series=ndf)
 
     @typic.al
     def new_time_base(
         self, series_name: str, new_series_name: str, tb_series_name: str
     ):
-        tb_series = pd.DataFrame(self._get_series(tb_series_name))
-        start, end = self.series_dates[tb_series_name.upper()]
+        tb_series = pd.DataFrame(self._get_series(tb_series_name)).dropna()
         series = pd.DataFrame(self._get_series(series_name))
-        nseries = tb_series.join(series, how="left").iloc[:, 1].astype(float)
+        nseries = tb_series.join(series, how="outer").iloc[:, 1].astype(float)
         nseries = nseries.interpolate(method="time", limit_direction="both").loc[
-            start:end
+            tb_series.index
         ]
         self._join(new_series_name, series=nseries)
 
@@ -1428,28 +1659,27 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
             statistic, statistic
         )
 
-        ta = ""
+        tab = ""
         if time_abscissa == "start":
-            ta = "S"
+            tab = "S"
         elif time_abscissa == "end":
-            ta = "E"
+            tab = "E"
 
-        wt = ""
+        wyt = ""
         if year_type == "water_high":
-            wt = "-SEP"
+            wyt = "-SEP"
         elif year_type == "water_low":
-            wt = "-MAR"
+            wyt = "-MAR"
         elif year_type == "calendar":
-            wt = "-DEC"
+            wyt = "-DEC"
 
         if period == "month_many":
-            series = series.resample(f"M{ta}").agg(method)
+            series = series.resample(f"M{tab}").agg(method)
         elif period == "month_one":
             series = series.groupby(lambda x: x.month).agg(method)
-            series.index = list(range(1, 13))
+            series.index = pd.date_range(start="1900-01-01", end="1900-12-31", freq="M")
         elif period == "year":
-            series = series.resample(f"A{ta}{wt}").agg(method)
-
+            series = series.resample(f"A{tab}{wyt}").agg(method)
         self._join(new_series_name, series=series)
 
     @typic.al
@@ -1489,7 +1719,7 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
             series = -series
         if self._normalize_bools(substitute):
             new_series_name = series_name
-            self.erase_entity(series=series_name)
+            self.erase_entity(series_name=series_name)
         self._join(new_series_name, series=series)
 
     @typic.al
@@ -1614,6 +1844,12 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
         nc_table = pd.DataFrame.from_dict(stats, orient="index")
 
         self._join(new_c_table_name, c_table=nc_table)
+        self.c_table_metadata[new_c_table_name.upper()] = {
+            "sim_name": series_name_sim,
+            "obs_name": series_name_obs,
+            "start_date": series_sim.index[0],
+            "end_date": series_sim.index[-1],
+        }
 
     @typic.al
     def series_difference(
@@ -1635,18 +1871,21 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
     ):
         series = self._get_series(series_name)
         series = series.shift(int(lag_increment))
+        series[-lag_increment:] = fill_value  # Verify what TSPROC does.
         self._join(new_series_name, series=series)
 
     @typic.al
     def series_equation(
         self,
         new_series_name: str,
-        equation: List[str],
+        equation,
     ):
-        equation = " ".join(equation).lower()
+        if isinstance(equation, list):
+            equation = "".join(equation)
+        equation = equation.strip().lower()
         keys = sorted(self.current_series.keys(), key=len, reverse=True)
         for i in keys:
-            equation = equation.replace(i.lower(), f"self._get_series('{i}')")
+            equation = equation.replace(i.lower(), f"self._get_series('{i.upper()}')")
         series = eval(equation)
         self._join(new_series_name, series=series)
 
@@ -1719,9 +1958,9 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
                 raise ValueError(
                     tsutils.error_wrapper(
                         f"""
-                The key '{key}' is not valid.
-                It must be either "minmean" or "maxmean"
-                """
+                        The key '{key}' is not valid. It must be either
+                        "minmean" or "maxmean"
+                        """
                     )
                 )
             stat, interval = key.split("_")
@@ -1735,6 +1974,13 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
                 if "min" in stat:
                     s_table.loc[key, :] = grouped.min()
         self._join(new_s_table_name, s_table=s_table)
+        self.s_table_metadata[new_s_table_name] = {
+            "source_name": series_name,
+            "start_date": series[0],
+            "end_date": series[-1],
+            "log_transformed": log,
+            "exponent": power,
+        }
 
     def settings(self, date_format="%Y-%m-%d"):
         if date_format == "dd/mm/yyyy":
@@ -1755,23 +2001,14 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
         date_2: str = None,
         time_2: str = None,
     ):
-        from hydrotoolbox import hydrotoolbox
-
         series = self._get_series(series_name)
-        if hysep_type.lower() == "fixed":
-            new_series = hydrotoolbox.base_sep.fixed(series)
-        elif hysep_type.lower() == "sliding":
-            new_series = hydrotoolbox.base_sep.sliding(series)
-        elif hysep_type.lower() == "interval":
-            new_series = hydrotoolbox.base_sep.interval(series)
-        else:
-            raise ValueError(
-                tsutils.error_wrapper(
-                    f"""
-                    The 'hysep_type' argument must be one of "fixed",
-                    "sliding", or "interval". You gave {hysep_type}."""
-                )
-            )
+        if hysep_type.lower() == "fixed_interval":
+            new_series = hydrotoolbox.baseflow_sep.usgs_hysep_fixed(input_ts=series)
+        elif hysep_type.lower() == "sliding_interval":
+            new_series = hydrotoolbox.baseflow_sep.usgs_hysep_slide(input_ts=series)
+        elif hysep_type.lower() == "local_minimum":
+            new_series = hydrotoolbox.baseflow_sep.usgs_hysep_local(input_ts=series)
+
         new_series = tsutils.common_kwds(
             new_series,
             start_date=self._normalize_dates(date_1, time_1),
@@ -1807,7 +2044,9 @@ The site name "{st}" is not in the available sites "{ts.columns}"."""
             raise ValueError(
                 tsutils.error_wrapper(
                     """
-Must supply one of "DATE_FILE" or "AUTOMATIC_DATES" keyword options"""
+                    Must supply one of "DATE_FILE" or "AUTOMATIC_DATES" keyword
+                    options.
+                    """
                 )
             )
 
@@ -1823,8 +2062,8 @@ Must supply one of "DATE_FILE" or "AUTOMATIC_DATES" keyword options"""
             start_end = [[i.start_time, i.end_time] for i in start_end]
         if date_file:
             start_end = []
-            with open(date_file, "r", encoding="ascii") as fp:
-                for line in fp.readlines():
+            with open(date_file, "r", encoding="ascii") as fpi:
+                for line in fpi.readlines():
                     words = line.strip().split()
                     start_end.append(
                         [
@@ -1836,19 +2075,21 @@ Must supply one of "DATE_FILE" or "AUTOMATIC_DATES" keyword options"""
         volume = []
         for start, end in start_end:
             nsend = pd.DatetimeIndex([start, end])
-            df = pd.DataFrame(
+            dfi = pd.DataFrame(
                 data=np.interp(
                     nsend, series.index, np.array(series.values).astype(np.float64)
                 ),
                 index=nsend,
             )
             mask = (series.index > start) & (series.index < end)
-            df = df.merge(series[mask], how="outer", left_index=True, right_index=True)
-            df.iloc[0, 1] = df.iloc[0, 0]
-            df.iloc[-1, 1] = df.iloc[-1, 0]
-            df = pd.Series(df.iloc[:, 1])
-            dfindex = df.index.astype(np.int64) // 10**9
-            volume.append(np.trapz(df, x=dfindex) * float(factor))
+            dfi = dfi.merge(
+                series[mask], how="outer", left_index=True, right_index=True
+            )
+            dfi.iloc[0, 1] = dfi.iloc[0, 0]
+            dfi.iloc[-1, 1] = dfi.iloc[-1, 0]
+            dfi = pd.Series(dfi.iloc[:, 1])
+            dfindex = dfi.index.astype(np.int64) // 10**9
+            volume.append(np.trapz(dfi, x=dfindex) * float(factor))
         start = [pd.to_datetime(i[0]) for i in start_end]
         end = [pd.to_datetime(i[1]) for i in start_end]
         series = pd.DataFrame(zip(start, end, volume))
@@ -1856,6 +2097,9 @@ Must supply one of "DATE_FILE" or "AUTOMATIC_DATES" keyword options"""
         series.index.names = ["start", "end"]
         series.columns = [f"{series_name}"]
         self._join(new_v_table_name, v_table=series)
+        self.v_table_metadata[new_v_table_name.upper()] = {
+            "source_name": series_name,
+        }
 
     @typic.al
     def write_pest_files(self, *args, **kwargs):
@@ -1938,13 +2182,14 @@ def get_blocks(seq):
             data = []
 
 
-@mando.command()
-def run(infile, outfile=None, running_context=None):
+@cltoolbox.command()
+def run(infile, running_context=None):
     """Parse a tsproc file."""
     blocks = []
     lnumbers = []
-    with open(infile, "r") as fpi:
-        for group, lnumber in get_blocks(fpi):
+    with open(infile, "r", encoding="utf-8") as fpi:
+        for index, group_lnumber in enumerate(get_blocks(fpi)):
+            group, lnumber = group_lnumber
             # Unroll the block.
 
             # First find the maximum number of words from each line in the
@@ -1955,7 +2200,13 @@ def run(infile, outfile=None, running_context=None):
             for line in group:
                 if line[1].lower() in ["settings"]:
                     break
+                if line[0].lower() == "end":
+                    continue
                 if line[1].lower() in [
+                    "get_mul_series_plotgen",
+                    "get_mul_series_gsflow_gage",
+                    "get_mul_series_ssf",
+                    "get_mul_series_statvar",
                     "exceedance_time",
                     "hydrologic_indices",
                     "list_output",
@@ -1975,6 +2226,25 @@ def run(infile, outfile=None, running_context=None):
                     "write_pest_files",
                 ]:
                     duplicates = True
+
+                # The following is to guarantee that WRITE_PEST_FILES is
+                # preceded by a LIST_OUTPUT block.
+                if line[1].lower() == "list_output":
+                    prev_list_output_index = index
+                if line[1].lower() == "write_pest_files":
+                    if prev_list_output_index != index - 1:
+                        raise ValueError(
+                            tsutils.error_wrapper(
+                                """
+                            The "WRITE_PEST_FILES" block must be immediately
+                            preceded by a "LIST_OUTPUT" block.  The
+                            "LIST_OUTPUT" block should contain all the
+                            simulated data to be used in the objective function
+                            in the same order as listed in the
+                            "WRITE_PEST_FILES" block. """
+                            )
+                        )
+
                 if len(line) > maxl:
                     maxl = len(line)
 
@@ -2010,9 +2280,9 @@ def run(infile, outfile=None, running_context=None):
     if running_context is None:
         for block in blocks:
             if block[0] == ["start", "SETTINGS"]:
-                for bl in block[1:]:
-                    if bl[0] == "context":
-                        running_context = bl[1]
+                for blk in block[1:]:
+                    if blk[0] == "context":
+                        running_context = blk[1]
                         break
                 break
 
@@ -2029,16 +2299,20 @@ def run(infile, outfile=None, running_context=None):
     data = Tables()
 
     for block, lnum in zip(runblocks, nnumbers):
-        keys = [i[0] for i in block]
+        keys = [i[0] for i in block if i[0] != "start"]
         data.line_number = lnum
         data.block_name = [i[1] for i in block if i[0] == "start"][0].upper()
         if data.block_name in deprecated:
             warning(
                 f"""
-WARNING: The block "{data.block_name}" is deprecated within
-tsblender. {deprecated[data.block_name]}"""
+                WARNING: The block "{data.block_name}" is deprecated within
+                tsblender. {deprecated[data.block_name]}"""
             )
-        args = [i.lower() for i in data.funcs[data.block_name]["args"]]
+        args = [
+            i.lower()
+            for i in data.funcs[data.block_name]["args"]
+            if i.lower() not in ["context"]
+        ]
         kwds = {
             key.lower(): val for key, val in data.funcs[data.block_name]["kwds"].items()
         }
@@ -2046,9 +2320,10 @@ tsblender. {deprecated[data.block_name]}"""
             raise ValueError(
                 tsutils.error_wrapper(
                     f"""
-All parameters in "{args}" are required for
-"{data.block_name}" at line {data.line_number}. You gave
-"{keys}"."""
+                    All parameters in "{args}" are required for
+                    "{data.block_name}" at line {data.line_number}. You gave
+                    "{keys}".
+                    """
                 )
             )
         if all(item in args + list(kwds.keys()) for item in keys):
@@ -2073,7 +2348,9 @@ All parameters in "{args}" are required for
         del parameters["start"]
         del parameters["context"]
         if os.path.exists("debug_tsblender"):
-            print(f"PROCESSING: {data.block_name} {parameters}")
+            print(
+                f"PROCESSING: {data.block_name} @ line number {data.line_number} with arguments {parameters}"
+            )
         data.funcs[data.block_name]["f"](**parameters)
     if os.path.exists("debug_tsblender"):
         print("\nTIME SERIES")
@@ -2084,21 +2361,24 @@ All parameters in "{args}" are required for
         print(data.g_table)
         print("\nE_TABLE")
         print(data.e_table)
+        print("\nE_TABLE_TOT")
+        print(data.e_table_tot)
         print("\nV_TABLE")
         print(data.v_table)
         print("\nC_TABLE")
         print(data.c_table)
+        print(data.e_table_metadata)
 
 
 def main():
-    """Set debug and run mando.main function."""
+    """Set debug and run cltoolbox.main function."""
     if not os.path.exists("debug_tsblender"):
         sys.tracebacklimit = 0
     if os.path.exists("profile_tsblender"):
         import functiontrace
 
         functiontrace.trace()
-    mando.main()
+    cltoolbox.main()
 
 
 if __name__ == "__main__":

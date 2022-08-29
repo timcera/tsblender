@@ -1,0 +1,16 @@
+
+ G_TABLE "flow_dur_obs" ---->
+   Flow-duration curve for series "Oq6500" (1954-02-01 to 2007-12-31)   Value
+   99.50% of flows exceed:                                                          20
+   99.00% of flows exceed:                                                          20
+   98.00% of flows exceed:                                                          21
+   95.00% of flows exceed:                                                          23
+   90.00% of flows exceed:                                                          25
+   75.00% of flows exceed:                                                          30
+   50.00% of flows exceed:                                                          37
+   25.00% of flows exceed:                                                          46
+   10.00% of flows exceed:                                                          60
+    5.00% of flows exceed:                                                          75
+    2.00% of flows exceed:                                                         113
+    1.00% of flows exceed:                                                      161.96
+    0.50% of flows exceed:                                            214.659999999998

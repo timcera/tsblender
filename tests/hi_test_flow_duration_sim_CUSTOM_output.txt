@@ -1,0 +1,11 @@
+
+ G_TABLE "flow_dur_sim" ---->
+   Flow-duration curve for series "Sq6500" (1954-02-01 to 2007-12-31)   Value
+   99.00% of flows exceed:                                                 13.43908288
+   87.00% of flows exceed:                                                 21.48317648
+   66.00% of flows exceed:                                                 28.44780496
+   45.00% of flows exceed:                                                  36.8814018
+   33.00% of flows exceed:                                                 43.26406328
+   11.00% of flows exceed:                                                 67.92019464
+    7.00% of flows exceed:                                                 86.67079616
+    3.00% of flows exceed:                                                  128.713412

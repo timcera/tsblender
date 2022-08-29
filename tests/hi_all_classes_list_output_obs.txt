@@ -3659,20 +3659,20 @@
    MA16: Mean monthly flow: May:                                                               46.5548387096774
    MA22: Mean monthly flow: November:                                                          38.1366666666667
    MA34: CV of monthly flow: November:                                                         21.4802406992153
+   ML1: Mean minimum monthly flow: January:                                                                28.2
    ML13: CV of minimum monthly flows:                                                          26.6205468681951
    ML15: Mean minimum annual flow/mean annual flow:                                           0.581449330581344
-   ML1: Mean minimum monthly flow: January:                                                                28.2
 
  G_TABLE "BEC_hyd_indx02" ---->
    Hydrologic Index:description (Olden & Poff, 2003) Oq6500 1954-02-01 to 2007-12-31                      Value
+   MA9: (Q10-Q90)/median daily flow:                                                          0.945945945945946
    MA18: Mean monthly flow: July:                                                              54.6741935483871
    MA21: Mean monthly flow: October:                                                                       35.7
    MA37: IQR mean monthly/median monthly flow:                                                0.408490471486047
-   MA9: (Q10-Q90)/median daily flow:                                                          0.945945945945946
+   ML6: Mean minimum monthly flow: June:                                                                   33.7
    ML15: Mean minimum annual flow/mean annual flow:                                           0.581449330581344
    ML16: Median minimum annual flow/median annual flow:                                       0.679965753424657
    ML22: Mean annual minimum flow divided by catchment area:                                  0.588942307692308
-   ML6: Mean minimum monthly flow: June:                                                                   33.7
 
  G_TABLE "BEC_hyd_indx03" ---->
    Hydrologic Index:description (Olden & Poff, 2003) Oq6500 1954-02-01 to 2007-12-31                      Value
@@ -3691,8 +3691,8 @@
  G_TABLE "BEC_hyd_indx05" ---->
    Hydrologic Index:description (Olden & Poff, 2003) Oq6500 1954-02-01 to 2007-12-31                      Value
    MA3: CV of all daily flows:                                                                 63.0103743210388
-   MA41: Mean annual runoff:                                                                    1.0339436788509
    MA8: Q25/Q75 for all daily flows:                                                           1.53333333333333
+   MA41: Mean annual runoff:                                                                    1.0339436788509
    ML14: Mean minimum daily flow/mean median annual flow:                                     0.669352835635409
    ML16: Median minimum annual flow/median annual flow:                                       0.679965753424657
    ML18: CV of (7-day minimum flow/mean annual):                                               16.7880643097504
@@ -3708,44 +3708,44 @@
 
  G_TABLE "BEC_hyd_indx07" ---->
    Hydrologic Index:description (Olden & Poff, 2003) Oq6500 1954-02-01 to 2007-12-31                      Value
-   MA11: (Q25-Q75)/median daily flow:                                                         0.432432432432432
    MA3: CV of all daily flows:                                                                 63.0103743210388
-   MA41: Mean annual runoff:                                                                    1.0339436788509
    MA5: Mean daily flow/median daily flow:                                                      1.1624581055186
+   MA11: (Q25-Q75)/median daily flow:                                                         0.432432432432432
+   MA41: Mean annual runoff:                                                                    1.0339436788509
+   ML4: Mean minimum monthly flow: April:                                                                    36
    ML17: 7-day minimum flow/mean annual flow:                                                  0.60889072699976
    ML18: CV of (7-day minimum flow/mean annual):                                               16.7880643097504
    ML21: CV of annual minimum flows:                                                            17.660891137071
-   ML4: Mean minimum monthly flow: April:                                                                    36
 
  G_TABLE "BEC_hyd_indx08" ---->
    Hydrologic Index:description (Olden & Poff, 2003) Oq6500 1954-02-01 to 2007-12-31                      Value
-   MA11: (Q25-Q75)/median daily flow:                                                         0.432432432432432
    MA2: Median of all daily flows:                                                                           37
    MA3: CV of all daily flows:                                                                 63.0103743210388
-   MA41: Mean annual runoff:                                                                    1.0339436788509
    MA4: CV of  log of all daily flows:                                                         32.7457829839556
    MA5: Mean daily flow/median daily flow:                                                      1.1624581055186
+   MA11: (Q25-Q75)/median daily flow:                                                         0.432432432432432
+   MA41: Mean annual runoff:                                                                    1.0339436788509
+   ML4: Mean minimum monthly flow: April:                                                                    36
    ML17: 7-day minimum flow/mean annual flow:                                                  0.60889072699976
    ML18: CV of (7-day minimum flow/mean annual):                                               16.7880643097504
    ML21: CV of annual minimum flows:                                                            17.660891137071
-   ML4: Mean minimum monthly flow: April:                                                                    36
 
  G_TABLE "BEC_hyd_indx09" ---->
    Hydrologic Index:description (Olden & Poff, 2003) Oq6500 1954-02-01 to 2007-12-31                      Value
    DH11: Mean of 1-day maximum of flow:                                                        9.91621621621622
    DH15: Mean duration of flood pulses>75th percentile flow:                                   6.04769736842105
    DH20: Mean duration of flood pulses>25th percentile of median flow:                         7.76047964462438
+   DL9: CV: annual minimum of 30-day mean of flow:                                             15.8331139952276
    DL11: Mean of 1-day minimum of flow:                                                       0.662162162162162
    DL16: Low flow pulse duration (Mean duration of FL1):                                       7.89473684210526
-   DL9: CV: annual minimum of 30-day mean of flow:                                             15.8331139952276
    FH3: Count of high flow events (>3*median annual):                                                       7.5
    FH6: Count of high flow events (>3*median annual)/record length (yrs):                                   4.1
    FL1: Annual low flow pulse count; number of periods<25th percentile:                                     7.4
    FL2: CV of low flow pulse count:                                                            79.6164003433719
    FL3: Count of low flow spells (<5% of mean)/record length (yrs):                                           0
    MA3: CV of all daily flows:                                                                 63.0103743210388
-   MA41: Mean annual runoff:                                                                    1.0339436788509
    MA8: Q25/Q75 for all daily flows:                                                           1.53333333333333
+   MA41: Mean annual runoff:                                                                    1.0339436788509
    MH10: Mean maximum monthly flow: October:                                                               67.4
    MH17: Mean of Q25 values/median daily flow across all years:                                1.24324324324324
    MH19: Skewness in annual maximum flows:                                                   -0.105526564872706
