@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """Collection of functions for the manipulation of time series."""
 
 import datetime
@@ -13,11 +14,11 @@ import numpy as np
 import pandas as pd
 import typic
 from dateutil.parser import parse
+from hspf_reader.hspf_reader import plotgen as _get_series_plotgen
+from hspf_reader.hspf_reader import wdm as _get_series_wdm
 from hydrotoolbox import hydrotoolbox
-from tstoolbox import tstoolbox, tsutils
-
-from .functions.get_series_plotgen import readPLTGEN as _get_series_plotgen
-from .functions.get_series_wdm import get_wdm_data_set as _get_series_wdm
+from toolbox_utils import tsutils
+from tstoolbox.tstoolbox import gof
 
 warnings.filterwarnings("ignore")
 
@@ -765,8 +766,31 @@ class Tables:
         clip_zero: Union[bool, Literal["yes", "no"]] = False,
     ):
         series = self._get_series(series_name)
-        # FIXME: Digital filter is not implemented yet
-        self._join(new_series_name, series=series)
+        if filter_type.lower() in ["butterworth"]:
+            from scipy import signal
+
+            scipy_pass = {
+                "low": "lowpass",
+                "high": "highpass",
+                "band": "bandpass",
+                "bandpass": "bandpass",
+                "bandstop": "bandstop",
+            }[filter_pass]
+            fs = {"H": 24, "T": 24 * 60, "D": 1, "M": 1 / 30.5, "A": 1 / 365.25}[
+                series.index.freqstr
+            ]
+            if scipy_pass in ["low", "high"]:
+                cf = cutoff_frequency
+            else:
+                cf = [cutoff_frequency_1, cutoff_frequency_2]
+            if filter_type.lower() == "butterworth":
+                sos = signal.butter(stages, cf, scipy_pass, fs=fs, output="sos")
+            filtered = signal.sosfilt(sos, series)
+        elif filter_type.lower() in ["baseflow_separation"]:
+            from hydrotoolbox.hydrotoolbox import baseflow_sep
+
+            filtered = baseflow_sep.chapman(series)
+        self._join(new_series_name, series=filtered)
 
     @typic.al
     def erase_entity(
@@ -1416,6 +1440,7 @@ class Tables:
         v_table_name=None,
         e_table_name=None,
         g_table_name=None,
+        _ins_file="",
     ):
         """
         List the output in the following order:
@@ -1451,21 +1476,35 @@ class Tables:
         elif g_table_name is None:
             g_table_name = []
 
+        ofile = _ins_file if _ins_file else file
+
         # Time series first
-        with open(file, "w", encoding="utf-8") as fp:
+        with open(ofile, "w", encoding="utf-8") as fp:
+            outp = "pif $\n1l\n" if _ins_file else ""
+            fp.write(outp)
             for sern in series_name:
-                fp.write(f'\n TIME_SERIES "{sern}" ---->\n')
+                outp = "31\n" if _ins_file else f'\n TIME_SERIES "{sern}" ---->\n'
+                fp.write(outp)
                 series = self._get_series(sern.upper())
                 start, end = self.series_dates[sern.upper()]
-                for index, value in series.loc[start:end].dropna().iteritems():
+                for rowno, (index, value) in enumerate(
+                    series.loc[start:end].dropna().iteritems()
+                ):
                     if series_format == "long":
                         date = index.strftime(self.date_format)
                         time = index.strftime("%H:%M:%S")
-                        fp.write(
-                            f" {sern}{date:>{28-len(sern)}}   {time} {value:<13.13g}\n"
+                        outp = (
+                            f"l1   [{sern}{rowno+1}]\n"
+                            if _ins_file
+                            else f" {sern}{date:>{28-len(sern)}}   {time} {value:<13.13g}\n"
                         )
                     elif series_format == "short":
-                        fp.write(f" {value}\n")
+                        outp = (
+                            "1l    [{sern}{rowno+1}]\n" if _ins_file else f" {value}\n"
+                        )
+                    fp.write(outp)
+            outp = "11\n" if _ins_file else "\n"
+            fp.write(outp)
 
             for s_tab in s_table_name:
                 s_TAB = s_tab.upper()
@@ -1477,8 +1516,10 @@ class Tables:
                 end_date = self.s_table_metadata[s_TAB]["end_date"].strftime("%Y-%m-%d")
                 log_transformed = self.s_table_metadata[s_TAB]["log_transformed"]
                 exponent = self.s_table_metadata[s_TAB]["exponent"]
-                fp.write(
-                    f"""
+                outp = (
+                    "l8\n"
+                    if _ins_file
+                    else f"""
  S_TABLE "{s_tab}" ---->
      Series for which data calculated:               {source_name}
      Starting date for data accumulation:            {start_date}
@@ -1487,10 +1528,14 @@ class Tables:
      Exponent in power transformation:               {exponent}
 """
                 )
+                fp.write(outp)
                 for index, value in st.iteritems():
-                    fp.write(
-                        f"     {s_tab}{index:>{28-len(s_tab)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
+                    outp = (
+                        "1l {s_tab}  \n"
+                        if _ins_file
+                        else f"     {s_tab}{index:>{28-len(s_tab)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
                     )
+                    fp.write(outp)
 
             for c_tab in c_table_name:
                 c_TAB = c_tab.upper()
@@ -1501,8 +1546,10 @@ class Tables:
                     "%Y-%m-%d"
                 )
                 end_date = self.c_table_metadata[c_TAB]["end_date"].strftime("%Y-%m-%d")
-                fp.write(
-                    f"""
+                outp = (
+                    "FIXME"
+                    if _ins_file
+                    else f"""
  C_TABLE "{c_tab}" ---->
      Observation time series name:                    {obs_name}
      Simulation time series name:                     {sim_name}
@@ -1510,23 +1557,33 @@ class Tables:
      Finishing time of series comparison:             {end_date}
 """
                 )
+                fp.write(outp)
                 for index, value in stats.iteritems():
-                    fp.write(
-                        f"     {c_tab}{index:>{28-len(c_tab)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
+                    outp = (
+                        "FIXME"
+                        if _ins_file
+                        else f"     {c_tab}{index:>{28-len(c_tab)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
                     )
+                    fp.write(outp)
 
             for v_tab in v_table_name:
-                fp.write(
-                    f"""
+                outp = (
+                    "l4"
+                    if _ins_file
+                    else f"""
  V_TABLE "{v_tab}" ---->
      Volumes calculated from series "{self.v_table_metadata[v_tab.upper()]["source_name"]}" are as follows:-
 """
                 )
+                fp.write(outp)
                 v_table = self._get_v_table(v_tab.upper())
                 for index, value in v_table.dropna().iteritems():
-                    fp.write(
-                        f"    From {index[0].strftime(self.date_format)} {index[0].strftime('%H:%M:%S')} to {index[1].strftime(self.date_format)} {index[1].strftime('%H:%M:%S')}  volume = {value:0<13.13g}\n"
+                    outp = (
+                        "FIXME"
+                        if _ins_file
+                        else f"    From {index[0].strftime(self.date_format)} {index[0].strftime('%H:%M:%S')} to {index[1].strftime(self.date_format)} {index[1].strftime('%H:%M:%S')}  volume = {value:0<13.13g}\n"
                     )
+                    fp.write(outp)
 
             for e_tab in e_table_name:
                 e_TAB = self.e_table[e_tab.upper()]
@@ -1535,16 +1592,22 @@ class Tables:
                 direction = {"over": "above", "under": "below"}[
                     self.e_table_metadata[e_tab.upper()]["under_over"]
                 ]
-                fp.write(
-                    f"""
+                outp = (
+                    "4l"
+                    if _ins_file
+                    else f"""
  E_TABLE "{e_tab}" ---->
    Flow           Time delay ({units})    Time {direction} ({units})   Fraction of time {direction} threshold
 """
                 )
+                fp.write(outp)
                 for index, value in e_TAB.dropna().iteritems():
-                    fp.write(
-                        f"   {index[0]:<7g}          {index[1]:<7.4f}{value:>25.12g}{et_tot[index]:>25.10g}\n"
+                    outp = (
+                        "FIXME"
+                        if _ins_file
+                        else f"   {index[0]:<7g}          {index[1]:<7.4f}{value:>25.12g}{et_tot[index]:>25.10g}\n"
                     )
+                    fp.write(outp)
 
             for g_tab in g_table_name:
                 src = self.g_table_metadata[g_tab.upper()]["source"]
@@ -1556,35 +1619,49 @@ class Tables:
                     #  G_TABLE "mduration" ---->
                     #    Flow-duration curve for series "mflow" (11/08/8672 to 11/07/8693)                     Value
                     #    99.50% of flows exceed:                                                         4.912684
-                    fp.write(
-                        f"""
+                    outp = (
+                        "FIXME"
+                        if _ins_file
+                        else f"""
  G_TABLE "{g_tab}" ---->
    Flow-duration curve for series "{src}" ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")})   Value
 """
                     )
+                    fp.write(outp)
                     g_table = self.g_table[g_tab.upper()].dropna()
                     g_table = g_table.sort_index(ascending=False)
                     for index, value in g_table.dropna().iteritems():
-                        fp.write(
-                            f"   {index*100:5.02f}% of flows exceed:{value:>60.15g}\n"
+                        outp = (
+                            "FIXME"
+                            if _ins_file
+                            else f"   {index*100:5.02f}% of flows exceed:{value:>60.15g}\n"
                         )
+                        fp.write(outp)
                 elif kind == "hydrologic_indices":
                     #  G_TABLE "mduration_p" ---->
                     #    Hydrologic Index and description (Olden and Poff, 2003)                               Value
                     #    MA16: Mean monthly flow May-Aug:                                                      4.912684
-                    fp.write(
-                        f"""
+                    outp = (
+                        "FIXME"
+                        if _ins_file
+                        else f"""
  G_TABLE "{g_tab}" ---->
    Hydrologic Index:description (Olden & Poff, 2003) {src} {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} {"Value":>{32-len(src)}}
 """
                     )
+                    fp.write(outp)
 
                     g_table = self.g_table[g_tab.upper()].dropna()
                     sindex = sorted(g_table.index, key=natural_keys)
                     g_table = g_table.loc[sindex]
 
                     for index, value in g_table.iteritems():
-                        fp.write(f"   {index}:{value:>{107-len(index)}.15g}\n")
+                        outp = (
+                            "FIXME"
+                            if _ins_file
+                            else f"   {index}:{value:>{107-len(index)}.15g}\n"
+                        )
+                        fp.write(outp)
 
     @typic.al
     def new_series_uniform(
@@ -1796,48 +1873,48 @@ class Tables:
 
         stats = {}
         if self._normalize_bools(bias):
-            stats["Bias:"] = tstoolbox.gof(
-                stats="me", sim_col=series_sim, obs_col=series_obs
-            )[0][1]
+            stats["Bias:"] = gof(stats="me", sim_col=series_sim, obs_col=series_obs)[0][
+                1
+            ]
         if self._normalize_bools(standard_error):
-            stats["Standard error:"] = tstoolbox.gof(
+            stats["Standard error:"] = gof(
                 stats="rmse", sim_col=series_sim, obs_col=series_obs
             )[0][1]
         if self._normalize_bools(relative_bias):
             stats["Relative bias:"] = (
-                tstoolbox.gof(stats="me", sim_col=series_sim, obs_col=series_obs)[0][1]
+                gof(stats="me", sim_col=series_sim, obs_col=series_obs)[0][1]
                 / series_obs.mean()
             )
         if self._normalize_bools(relative_standard_error):
-            stats["Relative standard error:"] = tstoolbox.gof(
+            stats["Relative standard error:"] = gof(
                 stats="nrmse_mean", sim_col=series_sim, obs_col=series_obs
             )[0][1]
         if self._normalize_bools(nash_sutcliffe):
-            stats["Nash-Sutcliffe coefficient:"] = tstoolbox.gof(
+            stats["Nash-Sutcliffe coefficient:"] = gof(
                 stats="nse", sim_col=series_sim, obs_col=series_obs
             )[0][1]
         if self._normalize_bools(coefficient_of_efficiency):
             if exponent == 2:
-                stats["Coefficient of efficiency:"] = tstoolbox.gof(
+                stats["Coefficient of efficiency:"] = gof(
                     stats="lm_index", sim_col=series_sim, obs_col=series_obs
                 )[0][
                     1
                 ]  # need to fix
             elif exponent == 1:
-                stats["Coefficient of efficiency:"] = tstoolbox.gof(
+                stats["Coefficient of efficiency:"] = gof(
                     stats="lm_index", sim_col=series_sim, obs_col=series_obs
                 )[0][1]
         if self._normalize_bools(index_of_agreement):
             if exponent == 2:
-                stats["Index of agreement:"] = tstoolbox.gof(
+                stats["Index of agreement:"] = gof(
                     stats="d", sim_col=series_sim, obs_col=series_obs
                 )[0][1]
             elif exponent == 1:
-                stats["Index of agreement:"] = tstoolbox.gof(
+                stats["Index of agreement:"] = gof(
                     stats="d1", sim_col=series_sim, obs_col=series_obs
                 )[0][1]
         if self._normalize_bools(volumetric_efficiency):
-            stats["Volumetric efficiency:"] = tstoolbox.gof(
+            stats["Volumetric efficiency:"] = gof(
                 stats="ve", sim_col=series_sim, obs_col=series_obs
             )[0][1]
 
@@ -1990,40 +2067,12 @@ class Tables:
         self.date_format = date_format
 
     @typic.al
-    def usgs_hysep(
-        self,
-        series_name: str,
-        new_series_name: str,
-        hysep_type: Literal["fixed_interval", "sliding_interval", "local_minimum"],
-        time_interval: int,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
-    ):
-        series = self._get_series(series_name)
-        if hysep_type.lower() == "fixed_interval":
-            new_series = hydrotoolbox.baseflow_sep.usgs_hysep_fixed(input_ts=series)
-        elif hysep_type.lower() == "sliding_interval":
-            new_series = hydrotoolbox.baseflow_sep.usgs_hysep_slide(input_ts=series)
-        elif hysep_type.lower() == "local_minimum":
-            new_series = hydrotoolbox.baseflow_sep.usgs_hysep_local(input_ts=series)
-
-        new_series = tsutils.common_kwds(
-            new_series,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
-        )
-        self._join(new_series_name, series=new_series)
-
-    @typic.al
     def v_table_to_series(
         self,
         new_series_name,
         v_table_name,
         time_abscissa,
     ):
-
         v_table = self._get_v_table(v_table_name)
         series = v_table  # FIX!
         self._join(new_series_name, series=series)
@@ -2102,7 +2151,40 @@ class Tables:
         }
 
     @typic.al
-    def write_pest_files(self, *args, **kwargs):
+    def write_pest_files(
+        self,
+        new_pest_control_file,
+        new_instruction_file,
+        series_name=None,
+        template_file=None,
+        model_input_file=None,
+        parameter_data_file=None,
+        parameter_group_file=None,
+        observation_series_name=None,
+        model_series_name=None,
+        series_weights_equation=None,
+        series_weights_min_max=None,
+        observation_s_table_name=None,
+        model_s_table_name=None,
+        s_table_weights_equation=None,
+        s_table_weights_min_max=None,
+        observation_v_table_name=None,
+        model_v_table_name=None,
+        v_table_weights_equation=None,
+        v_table_weights_min_max=None,
+        observation_e_table_name=None,
+        model_e_table_name=None,
+        e_table_weights_equation=None,
+        e_table_weights_min_max=None,
+        observation_g_table_name=None,
+        model_g_table_name=None,
+        g_table_weights_equation=None,
+        g_table_weights_min_max=None,
+        automatic_user_intervention=no,
+        truncated_svd=2.0e-7,
+        model_command_line=None,
+        **kwds,
+    ):
         return None
 
 
