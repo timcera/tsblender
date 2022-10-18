@@ -1,3 +1,11 @@
+[build-system]
+requires = [
+    "setuptools",
+    "wheel",
+    "oldest-supported-numpy",
+]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "tsblender"
 dynamic = ["version", "readme"]
@@ -12,8 +20,8 @@ dependencies = [
     "pint-pandas",
     "xlsxwriter",
     "setuptools",
-    "toolbox_utils < 1.0.0",
-    "typical",
+    "toolbox_utils >= 1.0.0, < 2.0.0",
+    "pydantic",
     "hydrotoolbox",
     ]
 license = {text = "BSD-3-Clause"}
@@ -68,30 +76,12 @@ dev = [
 [project.scripts]
 tsblender = "tsblender.tsblender:main"
 
-[project_urls]
+[project.urls]
 documentation = "https://timcera.bitbucket.io/tsblender/docs/index.html#tsblender-documentation"
 github = "https://github.com/timcera/tsblender"
 bitbucket = "https://bitbucket.org/timcera/tsblender/src/main/"
 
-[tool.setuptools]
-license-files = ["LICENSE.txt"]
-include-package-data = true
-
-[tool.setuptools.dynamic]
-readme = {file = "README.rst"}
-version = {file = "VERSION"}
-
-[tool.setuptools.packages.find]
-where = ["src"]
-exclude = ["examples*", "tools*", "docs*", "tsblender.tests*"]
-
-[build-system]
-requires = [
-    "setuptools",
-    "wheel",
-    "oldest-supported-numpy",
-]
-build-backend = "setuptools.build_meta"
+[tool]
 
 [tool.check-manifest]
 ignore = ["docs/_function_autosummary/*",
@@ -105,3 +95,15 @@ version = "0.1.0"
 tag_format = "v$version"
 version_files = ["VERSION"]
 update_changelog_on_bump = true
+
+[tool.setuptools]
+license-files = ["LICENSE.txt"]
+include-package-data = true
+
+[tool.setuptools.dynamic]
+readme = {file = "README.rst"}
+version = {file = "VERSION"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
+exclude = ["examples*", "tools*", "docs*", "tsblender.tests*"]

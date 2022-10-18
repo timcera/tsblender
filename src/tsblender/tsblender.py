@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 """Collection of functions for the manipulation of time series."""
 
 import datetime
@@ -12,11 +10,11 @@ from typing import Literal, Optional, Union
 import cltoolbox
 import numpy as np
 import pandas as pd
-import typic
 from dateutil.parser import parse
 from hspf_reader.hspf_reader import plotgen as _get_series_plotgen
 from hspf_reader.hspf_reader import wdm as _get_series_wdm
 from hydrotoolbox import hydrotoolbox
+from pydantic import validate_arguments
 from toolbox_utils import tsutils
 from tstoolbox.tstoolbox import gof
 
@@ -532,6 +530,7 @@ class Tables:
                     "TIME_INTERVAL",
                 ],
                 "kwds": {
+                    "AREA": 1.0,
                     "DATE_1": None,
                     "TIME_1": None,
                     "DATE_2": None,
@@ -748,7 +747,7 @@ class Tables:
         series = series.iloc[:, 0]
         return series
 
-    @typic.al
+    @validate_arguments
     def digital_filter(
         self,
         series_name: str,
@@ -758,9 +757,9 @@ class Tables:
         cutoff_frequency: Optional[float] = None,
         cutoff_frequency_1: Optional[float] = None,
         cutoff_frequency_2: Optional[float] = None,
-        stages: Literal[1, 2, 3] = 1,
+        stages: Union[int, Literal[1, 2, 3]] = 1,
         alpha: Optional[float] = None,
-        passes: Literal[1, 3] = 1,
+        passes: Union[int, Literal[1, 3]] = 1,
         reverse_second_stage: Optional[Union[bool, Literal["yes", "no"]]] = None,
         clip_input: Union[bool, Literal["yes", "no"]] = False,
         clip_zero: Union[bool, Literal["yes", "no"]] = False,
@@ -792,7 +791,7 @@ class Tables:
             filtered = baseflow_sep.chapman(series)
         self._join(new_series_name, series=filtered)
 
-    @typic.al
+    @validate_arguments
     def erase_entity(
         self,
         series_name: Optional[str] = None,
@@ -833,7 +832,7 @@ class Tables:
             self.g_table = self.g_table.drop(g_table_name.upper(), axis="columns")
             del self.g_table_metadata[g_table_name.upper()]
 
-    @typic.al
+    @validate_arguments
     def exceedance_time(
         self,
         series_name: str,
@@ -929,7 +928,7 @@ class Tables:
             "under_over": under_over,
         }
 
-    @typic.al
+    @validate_arguments
     def flow_duration(
         self,
         series_name: str,
@@ -969,7 +968,7 @@ class Tables:
             "end_date": series.index[-1],
         }
 
-    @typic.al
+    @validate_arguments
     def get_series_csv(
         self,
         file: str,
@@ -991,7 +990,7 @@ class Tables:
         )
         self._join(new_series_name, series=ts)
 
-    @typic.al
+    @validate_arguments
     def get_series_gsflow_gage(
         self,
         file: str,
@@ -1009,7 +1008,7 @@ class Tables:
             data_type = [data_type]
         if isinstance(new_series_name, str):
             new_series_name = [new_series_name]
-        with open(file, "r") as f:
+        with open(file) as f:
             _ = f.readline()
             headers = f.readline()
         headers = headers.replace('"', "").split()
@@ -1056,7 +1055,7 @@ class Tables:
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
-    @typic.al
+    @validate_arguments
     def get_series_statvar(
         self,
         file: str,
@@ -1079,7 +1078,7 @@ class Tables:
 
         # Need this to calculate "skiprows" in pd.read_csv and "headers" to
         # later rename the columns to.
-        with open(file, "r") as f:
+        with open(file) as f:
             num_series = int(f.readline().strip())
             collect = []
             for ns in range(num_series):
@@ -1131,7 +1130,7 @@ class Tables:
             self._join(nsn.upper(), series=nts)
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
 
-    @typic.al
+    @validate_arguments
     def get_series_hspfbin(
         self,
         file: str,
@@ -1168,7 +1167,7 @@ class Tables:
         )
         self._join(new_series_name, series=ts)
 
-    @typic.al
+    @validate_arguments
     def get_series_plotgen(
         self,
         file: str,
@@ -1204,7 +1203,7 @@ class Tables:
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
-    @typic.al
+    @validate_arguments
     def get_series_ssf(
         self,
         file: str,
@@ -1269,7 +1268,7 @@ class Tables:
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
-    @typic.al
+    @validate_arguments
     def get_series_wdm(
         self,
         file: str,
@@ -1298,7 +1297,7 @@ class Tables:
         )
         self._join(new_series_name, series=ts)
 
-    @typic.al
+    @validate_arguments
     def get_series_xlsx(
         self,
         new_series_name: str,
@@ -1321,7 +1320,7 @@ class Tables:
             ts = ts.loc[:, column]
         self._join(new_series_name, series=ts)
 
-    @typic.al
+    @validate_arguments
     def hydrologic_indices(
         self,
         series_name: str,
@@ -1403,7 +1402,7 @@ class Tables:
             "end_date": series.index[-1],
         }
 
-    @typic.al
+    @validate_arguments
     def hydro_events(
         self,
         series_name: str,
@@ -1429,7 +1428,7 @@ class Tables:
 
         self._join(new_series_name, series=ts)
 
-    @typic.al
+    @validate_arguments
     def list_output(
         self,
         file,
@@ -1663,7 +1662,7 @@ class Tables:
                         )
                         fp.write(outp)
 
-    @typic.al
+    @validate_arguments
     def new_series_uniform(
         self,
         new_series_name: str,
@@ -1692,7 +1691,7 @@ class Tables:
         ndf = pd.DataFrame(data=[new_series_value] * len(ndr), index=ndr)
         self._join(new_series_name, series=ndf)
 
-    @typic.al
+    @validate_arguments
     def new_time_base(
         self, series_name: str, new_series_name: str, tb_series_name: str
     ):
@@ -1704,7 +1703,7 @@ class Tables:
         ]
         self._join(new_series_name, series=nseries)
 
-    @typic.al
+    @validate_arguments
     def period_statistics(
         self,
         series_name: str,
@@ -1759,7 +1758,7 @@ class Tables:
             series = series.resample(f"A{tab}{wyt}").agg(method)
         self._join(new_series_name, series=series)
 
-    @typic.al
+    @validate_arguments
     def reduce_time_span(
         self,
         series_name: str,
@@ -1777,7 +1776,7 @@ class Tables:
         )
         self._join(new_series_name, series=series)
 
-    @typic.al
+    @validate_arguments
     def series_base_level(
         self,
         series_name: str,
@@ -1799,7 +1798,7 @@ class Tables:
             self.erase_entity(series_name=series_name)
         self._join(new_series_name, series=series)
 
-    @typic.al
+    @validate_arguments
     def series_clean(
         self,
         series_name: str,
@@ -1817,7 +1816,7 @@ class Tables:
             series[series < upper_erase_boundary] = substitute_value
         self._join(new_series_name, series=series)
 
-    @typic.al
+    @validate_arguments
     def series_compare(
         self,
         series_name_sim: str,
@@ -1928,7 +1927,7 @@ class Tables:
             "end_date": series_sim.index[-1],
         }
 
-    @typic.al
+    @validate_arguments
     def series_difference(
         self,
         series_name: str,
@@ -1938,7 +1937,7 @@ class Tables:
         series = series.diff()
         self._join(new_series_name, series=series)
 
-    @typic.al
+    @validate_arguments
     def series_displace(
         self,
         series_name,
@@ -1951,7 +1950,7 @@ class Tables:
         series[-lag_increment:] = fill_value  # Verify what TSPROC does.
         self._join(new_series_name, series=series)
 
-    @typic.al
+    @validate_arguments
     def series_equation(
         self,
         new_series_name: str,
@@ -1966,7 +1965,7 @@ class Tables:
         series = eval(equation)
         self._join(new_series_name, series=series)
 
-    @typic.al
+    @validate_arguments
     def series_statistic(
         self,
         series_name: str,
@@ -2066,7 +2065,7 @@ class Tables:
             date_format = "%m/%d/%Y"
         self.date_format = date_format
 
-    @typic.al
+    @validate_arguments
     def v_table_to_series(
         self,
         new_series_name,
@@ -2077,7 +2076,7 @@ class Tables:
         series = v_table  # FIX!
         self._join(new_series_name, series=series)
 
-    @typic.al
+    @validate_arguments
     def volume_calculation(
         self,
         series_name,
@@ -2111,7 +2110,7 @@ class Tables:
             start_end = [[i.start_time, i.end_time] for i in start_end]
         if date_file:
             start_end = []
-            with open(date_file, "r", encoding="ascii") as fpi:
+            with open(date_file, encoding="ascii") as fpi:
                 for line in fpi.readlines():
                     words = line.strip().split()
                     start_end.append(
@@ -2150,7 +2149,37 @@ class Tables:
             "source_name": series_name,
         }
 
-    @typic.al
+    @validate_arguments
+    def usgs_hysep(
+        self,
+        series_name: str,
+        new_series_name: str,
+        hysep_type: str,
+        time_interval: int,
+        area: float = 1.0,
+        date_1: str = None,
+        time_1: str = None,
+        date_2: str = None,
+        time_2: str = None,
+    ):
+        ts = pd.DataFrame(self._get_series(series_name))
+        ts = tsutils.common_kwds(
+            ts,
+            start_date=self._normalize_dates(date_1, time_1),
+            end_date=self._normalize_dates(date_2, time_2),
+        )
+        if time_interval is None:
+            time_interval = 5
+        if hysep_type.lower() == "fixed":
+            ts = hydrotoolbox.baseflow_sep.usgs_hysep_fixed(ts, time_interval)
+        elif hysep_type.lower() == "local":
+            ts = hydrotoolbox.baseflow_sep.usgs_hysep_local(ts, time_interval)
+        elif hysep_type.lower() == "sliding":
+            ts = hydrotoolbox.baseflow_sep.usgs_hysep_slide(ts, time_interval)
+
+        self._join(new_series_name, series=ts)
+
+    @validate_arguments
     def write_pest_files(
         self,
         new_pest_control_file,
@@ -2180,7 +2209,7 @@ class Tables:
         model_g_table_name=None,
         g_table_weights_equation=None,
         g_table_weights_min_max=None,
-        automatic_user_intervention=no,
+        automatic_user_intervention="no",
         truncated_svd=2.0e-7,
         model_command_line=None,
         **kwds,
@@ -2269,7 +2298,7 @@ def run(infile, running_context=None):
     """Parse a tsproc file."""
     blocks = []
     lnumbers = []
-    with open(infile, "r", encoding="utf-8") as fpi:
+    with open(infile, encoding="utf-8") as fpi:
         for index, group_lnumber in enumerate(get_blocks(fpi)):
             group, lnumber = group_lnumber
             # Unroll the block.
