@@ -5,6 +5,7 @@ import os.path
 import sys
 import warnings
 from collections import OrderedDict
+from contextlib import suppress
 from typing import List, Optional, Union
 
 import cltoolbox
@@ -13,16 +14,14 @@ import numpy as np
 import pandas as pd
 from dateutil.parser import parse
 from hydrotoolbox import hydrotoolbox
+from hydrotoolbox.hydrotoolbox import baseflow_sep
 from pydantic import validate_arguments
+from scipy import signal
 from toolbox_utils import tsutils
 from toolbox_utils.readers.hbn import hbn_extract as _get_series_hbn
 from toolbox_utils.readers.plotgen import plotgen_extract as _get_series_plotgen
 from toolbox_utils.readers.wdm import wdm_extract as _get_series_wdm
-
-try:
-    from typing import Literal
-except ImportError:
-    from typing_extensions import Literal
+from typing_extensions import Literal
 
 warnings.filterwarnings("ignore")
 
@@ -688,9 +687,9 @@ class Tables:
         if torf is True or torf is False:
             return torf
         if isinstance(torf, str):
-            if torf.lower() in ["y", "yes"]:
+            if torf.lower() in ("y", "yes"):
                 return True
-            if torf.lower() in ["n", "no"]:
+            if torf.lower() in ("n", "no"):
                 return False
         if torf:
             return True
@@ -771,8 +770,7 @@ class Tables:
         clip_zero: Union[bool, Literal["yes", "no"]] = False,
     ):
         series = self._get_series(series_name)
-        if filter_type.lower() in ["butterworth"]:
-            from scipy import signal
+        if filter_type.lower() in ("butterworth"):
 
             scipy_pass = {
                 "low": "lowpass",
@@ -784,15 +782,14 @@ class Tables:
             fs = {"H": 24, "T": 24 * 60, "D": 1, "M": 1 / 30.5, "A": 1 / 365.25}[
                 series.index.freqstr
             ]
-            if scipy_pass in ["low", "high"]:
+            if scipy_pass in ("low", "high"):
                 cf = cutoff_frequency
             else:
                 cf = [cutoff_frequency_1, cutoff_frequency_2]
             if filter_type.lower() == "butterworth":
                 sos = signal.butter(stages, cf, scipy_pass, fs=fs, output="sos")
             filtered = signal.sosfilt(sos, series)
-        elif filter_type.lower() in ["baseflow_separation"]:
-            from hydrotoolbox.hydrotoolbox import baseflow_sep
+        elif filter_type.lower() in ("baseflow_separation"):
 
             filtered = baseflow_sep.chapman(series)
         self._join(new_series_name, series=filtered)
@@ -872,7 +869,7 @@ class Tables:
             "sec": datetime.timedelta(seconds=1),
         }[exceedance_time_units.lower().rstrip("s")]
 
-        input_flow = flow_delay.get("flow", None)
+        input_flow = flow_delay.get("flow")
         input_flow = tsutils.make_list(input_flow)
         if isinstance(input_flow, (int, float)):
             input_flow = [input_flow]
@@ -985,10 +982,8 @@ class Tables:
         date_2: str = None,
         time_2: str = None,
     ):
-        try:
+        with suppress(ValueError):
             usecol = int(usecol)
-        except ValueError:
-            pass
         ts = tsutils.common_kwds(
             f"{file},{usecol}",
             start_date=self._normalize_dates(date_1, time_1),
@@ -1014,7 +1009,7 @@ class Tables:
             data_type = [data_type]
         if isinstance(new_series_name, str):
             new_series_name = [new_series_name]
-        with open(file) as f:
+        with open(file, encoding="ascii") as f:
             _ = f.readline()
             headers = f.readline()
         headers = headers.replace('"', "").split()
@@ -1084,7 +1079,7 @@ class Tables:
 
         # Need this to calculate "skiprows" in pd.read_csv and "headers" to
         # later rename the columns to.
-        with open(file) as f:
+        with open(file, encoding="ascii") as f:
             num_series = int(f.readline().strip())
             collect = []
             for ns in range(num_series):
@@ -1122,7 +1117,7 @@ class Tables:
         for vn, lid, nsn in zip(variable_name, location_id, new_series_name):
             try:
                 nts = ts[f"{vn}_{lid}"]
-            except KeyError:
+            except KeyError as exc:
                 raise KeyError(
                     tsutils.error_wrapper(
                         f"""
@@ -1132,7 +1127,7 @@ class Tables:
                         time-series are {ts.columns}.
                         """
                     )
-                )
+                ) from exc
             self._join(nsn.upper(), series=nts)
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
 
@@ -1195,7 +1190,7 @@ class Tables:
         for lb, nsn in zip(label, new_series_name):
             try:
                 nts = ts[lb]
-            except KeyError:
+            except KeyError as exc:
                 raise KeyError(
                     tsutils.error_wrapper(
                         f"""
@@ -1203,7 +1198,7 @@ class Tables:
                         "{file}". The available time-series are {ts.columns}.
                         """
                     )
-                )
+                ) from exc
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
@@ -1238,7 +1233,7 @@ class Tables:
                 columns=ts.columns[0],
                 aggfunc="first",
             )
-        except ValueError:
+        except ValueError as exc:
             raise ValueError(
                 tsutils.error_wrapper(
                     f"""
@@ -1247,7 +1242,7 @@ class Tables:
                     {ts.index.get_duplicates()}
                     """
                 )
-            )
+            ) from exc
         ts.index.name = "Datetime"
         ts.columns = [i[1] for i in ts.columns]
 
@@ -1260,7 +1255,7 @@ class Tables:
         for st, nsn in zip(site, new_series_name):
             try:
                 nts = ts[st]
-            except KeyError:
+            except KeyError as exc:
                 raise KeyError(
                     tsutils.error_wrapper(
                         f"""
@@ -1268,7 +1263,7 @@ class Tables:
                         "{file}". The available time-series are {ts.columns}.
                         """
                     )
-                )
+                ) from exc
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
@@ -1479,7 +1474,7 @@ class Tables:
         elif g_table_name is None:
             g_table_name = []
 
-        ofile = _ins_file if _ins_file else file
+        ofile = _ins_file or file
 
         # Time series first
         with open(ofile, "w", encoding="utf-8") as fp:
@@ -1950,7 +1945,7 @@ class Tables:
         fill_value,
     ):
         series = self._get_series(series_name)
-        series = series.shift(int(lag_increment))
+        series = series.shift(lag_increment)
         series[-lag_increment:] = fill_value  # Verify what TSPROC does.
         self._join(new_series_name, series=series)
 
@@ -2258,10 +2253,8 @@ def get_blocks(seq):
 
         # Handle comment lines and partial comment lines.  Everything from
         # a "#" to the end of the line is a comment.
-        try:
+        with suppress(ValueError):
             nline = nline[: nline.index("#")].rstrip()
-        except ValueError:
-            pass
 
         # Handle blank lines.
         if not nline:
@@ -2313,11 +2306,11 @@ def run(infile, running_context=None):
             rollable = True
             duplicates = False
             for line in group:
-                if line[1].lower() in ["settings"]:
+                if line[1].lower() == "settings":
                     break
                 if line[0].lower() == "end":
                     continue
-                if line[1].lower() in [
+                if line[1].lower() in (
                     "get_mul_series_plotgen",
                     "get_mul_series_gsflow_gage",
                     "get_mul_series_ssf",
@@ -2328,9 +2321,9 @@ def run(infile, running_context=None):
                     "write_pest_files",
                     "flow_duration",
                     "series_equation",
-                ]:
+                ):
                     rollable = False
-                if line[1].lower() in [
+                if line[1].lower() in (
                     "get_mul_series_plotgen",
                     "get_mul_series_gsflow_gage",
                     "get_mul_series_ssf",
@@ -2339,7 +2332,7 @@ def run(infile, running_context=None):
                     "hydrologic_indices",
                     "list_output",
                     "write_pest_files",
-                ]:
+                ):
                     duplicates = True
 
                 # The following is to guarantee that WRITE_PEST_FILES is
@@ -2426,7 +2419,7 @@ def run(infile, running_context=None):
         args = [
             i.lower()
             for i in data.funcs[data.block_name]["args"]
-            if i.lower() not in ["context"]
+            if i.lower() != "context"
         ]
         kwds = {
             key.lower(): val for key, val in data.funcs[data.block_name]["kwds"].items()
@@ -2754,7 +2747,7 @@ and the second is the simulated.  """
     obs = tsd.iloc[:, 0].astype("float64")
     sim = tsd.iloc[:, 1].astype("float64")
 
-    nstats = [i for i in stats if i not in ["mean", "stdev"]]
+    nstats = [i for i in stats if i not in ("mean", "stdev")]
 
     for stat in nstats:
         extra_args = {
@@ -2763,7 +2756,7 @@ and the second is the simulated.  """
             "remove_neg": remove_neg,
             "remove_zero": remove_zero,
         }
-        if stat in ["crmsd", "murphyss", "brierss", "pc_bias", "apc_bias"]:
+        if stat in ("crmsd", "murphyss", "brierss", "pc_bias", "apc_bias"):
             extra_args = {}
         proc = stats_dict[stat]
         if stat == "kge09":
