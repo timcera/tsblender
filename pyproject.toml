@@ -11,8 +11,7 @@ name = "tsblender"
 dynamic = ["version", "readme"]
 description = "Command line script and Python library to manipulate time series."
 dependencies = [
-    "dateutil",
-    "hspfbintoolbox",
+    "python-dateutil",
     "pyemu",
     "cltoolbox >= 1.0.0",
     "pandas",
@@ -22,7 +21,7 @@ dependencies = [
     "setuptools",
     "toolbox_utils >= 1.0.0, < 2.0.0",
     "pydantic",
-    "hydrotoolbox",
+    "hspf_reader",
     ]
 license = {text = "BSD-3-Clause"}
 authors = [
@@ -91,7 +90,7 @@ ignore = ["docs/_function_autosummary/*",
 
 [tool.commitizen]
 name = "cz_conventional_commits"
-version = "0.1.0"
+version = "1.0.0"
 tag_format = "v$version"
 version_files = ["VERSION"]
 update_changelog_on_bump = true

@@ -1,3 +1,9 @@
+## v1.0.0 (2022-10-30)
+
+### Fix
+
+- shifted to latest toolbox_utils requiring break in api
+
 ## v0.1.0 (2022-09-29)
 
 ### Feat
