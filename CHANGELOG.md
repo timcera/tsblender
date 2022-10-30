@@ -1,3 +1,9 @@
+## v102.0.0 (2022-10-30)
+
+### Fix
+
+- went through some refurb and pylsice suggestions
+
 ## v1.0.0 (2022-10-30)
 
 ### Fix
