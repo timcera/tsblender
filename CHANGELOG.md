@@ -1,3 +1,9 @@
+## v102.1.0 (2023-01-02)
+
+### Feat
+
+- use tstoolbox gof for compare tables
+
 ## v102.0.0 (2022-10-30)
 
 ### Fix
