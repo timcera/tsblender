@@ -12,6 +12,7 @@ import cltoolbox
 import HydroErr as he
 import numpy as np
 import pandas as pd
+import pyemu
 from dateutil.parser import parse
 from hydrotoolbox import hydrotoolbox
 from hydrotoolbox.hydrotoolbox import baseflow_sep
@@ -19,8 +20,9 @@ from pydantic import validate_arguments
 from scipy import signal
 from toolbox_utils import tsutils
 from toolbox_utils.readers.hbn import hbn_extract as _get_series_hbn
-from toolbox_utils.readers.plotgen import plotgen_extract as _get_series_plotgen
+from toolbox_utils.readers.plotgen import plotgen_extract as _get_series_pgen
 from toolbox_utils.readers.wdm import wdm_extract as _get_series_wdm
+from tstoolbox.functions.gof import gof
 from typing_extensions import Literal
 
 warnings.filterwarnings("ignore")
@@ -79,6 +81,8 @@ class Tables:
         self.date_format = "%Y-%m-%d"
         self.line_number = 0
         self.block_name = ""
+
+        self.ofile = ""
 
         self.funcs = {
             "SETTINGS": {
@@ -702,7 +706,8 @@ class Tables:
             raise ValueError(
                 tsutils.error_wrapper(
                     f"""
-                    Only one of the following can be True: {errstr} """
+                    Only one of the following can be True: {errstr}
+                    """
                 )
             )
 
@@ -1181,7 +1186,7 @@ class Tables:
             label = [label]
         if isinstance(new_series_name, str):
             new_series_name = [new_series_name]
-        ts = _get_series_plotgen(file)
+        ts = _get_series_pgen(file)
         ts = tsutils.common_kwds(
             ts,
             start_date=self._normalize_dates(date_1, time_1),
@@ -1280,9 +1285,7 @@ class Tables:
         def_time="00:00:00",
         filter: Optional[int] = None,
     ):
-        ts = pd.DataFrame(
-            _get_series_wdm(file, {"dsn": dsn, "location": None, "constituent": None})
-        )
+        ts = pd.DataFrame(_get_series_wdm(file, dsn))
         hh, mm, ss = def_time.split(":")
         if int(hh) == 24:
             delta = pd.Timedelta(days=1, minutes=int(mm), seconds=int(ss))
@@ -1474,10 +1477,10 @@ class Tables:
         elif g_table_name is None:
             g_table_name = []
 
-        ofile = _ins_file or file
+        self.ofile = _ins_file or file
 
         # Time series first
-        with open(ofile, "w", encoding="utf-8") as fp:
+        with open(self.ofile, "w", encoding="utf-8") as fp:
             outp = "pif $\n1l\n" if _ins_file else ""
             fp.write(outp)
             for sern in series_name:
@@ -2213,7 +2216,10 @@ class Tables:
         model_command_line=None,
         **kwds,
     ):
-        return None
+        pst = pyemu.Pst.from_io_files(
+            template_file, model_input_file, new_instruction_file, self.ofile
+        )
+        pst.write(new_pest_control_file)
 
 
 def get_blocks(seq):
@@ -2266,7 +2272,10 @@ def get_blocks(seq):
         keyword = words[0].lower()
 
         # Test for "START ..." at the beginning of the line, start collecting
-        # lines and yield data when reaching the next "START ..."..
+        # lines and yield data and line index when reaching the next "END ...".
+        #
+        # Collect the line index of the START keyword in order to report
+        # location of any errors.
         if keyword == "start":
             inblock = True
             lindex = index + 1
@@ -2282,7 +2291,8 @@ def get_blocks(seq):
                     tsutils.error_wrapper(
                         f"""
                         The block name in the END line at line {index+1} does
-                        not match the block name in the START line."""
+                        not match the block name in the START line.
+                        """
                     )
                 )
             inblock = False
@@ -2344,12 +2354,13 @@ def run(infile, running_context=None):
                         raise ValueError(
                             tsutils.error_wrapper(
                                 """
-                            The "WRITE_PEST_FILES" block must be immediately
-                            preceded by a "LIST_OUTPUT" block.  The
-                            "LIST_OUTPUT" block should contain all the
-                            simulated data to be used in the objective function
-                            in the same order as listed in the
-                            "WRITE_PEST_FILES" block. """
+                                The "WRITE_PEST_FILES" block must be
+                                immediately preceded by a "LIST_OUTPUT" block.
+                                The "LIST_OUTPUT" block should contain all the
+                                simulated data to be used in the objective
+                                function in the same order as listed in the
+                                "WRITE_PEST_FILES" block.
+                                """
                             )
                         )
 
@@ -2440,7 +2451,8 @@ def run(infile, running_context=None):
                     f"""
                     The available parameters for "{data.block_name}" at line
                     "{data.line_number}" are "{args + list(kwds.keys())}" but
-                    you gave "{set(args + list(kwds.keys()))-set(keys)}" """
+                    you gave "{set(args + list(kwds.keys()))-set(keys)}"
+                    """
                 )
             )
         if data.block_name == "settings":
@@ -2476,314 +2488,6 @@ def run(infile, running_context=None):
         print("\nC_TABLE")
         print(data.c_table)
         print(data.e_table_metadata)
-
-
-stats_dict = {
-    "bias": ["Mean error or bias", he.me],
-    "pc_bias": [
-        "Percent bias",
-        lambda sim, obs: 100.0 * np.sum(sim - obs) / np.sum(obs),
-    ],
-    "apc_bias": [
-        "Absolute percent bias",
-        lambda sim, obs: 100.0 * np.sum(np.abs(sim - obs)) / np.sum(obs),
-    ],
-    "rmsd": ["Root-mean-square Deviation/Error (RMSD)", he.rmse],
-    "crmsd": [
-        "Centered RMSD (CRMSD)",
-        lambda sim, obs: np.sqrt(
-            np.sum(np.square((sim - np.mean(sim)) - (obs - np.mean(obs)))) / sim.size
-        ),
-    ],
-    "corrcoef": ["Pearson coefficient of correlation (r)", he.pearson_r],
-    "coefdet": ["Coefficient of determination (r^2)", he.r_squared],
-    "murphyss": [
-        "Skill score (Murphy)",
-        lambda sim, obs: 1.0
-        - (np.sum(np.square(sim - obs)) / len(sim)) / np.std(obs, ddof=1) ** 2,
-    ],
-    "nse": ["Nash-Sutcliffe Efficiency", he.nse],
-    "kge09": ["Kling-Gupta efficiency (2009)", he.kge_2009],
-    "kge12": ["Kling-Gupta efficiency (2012)", he.kge_2012],
-    "index_agreement": ["Index of agreement", he.d],
-    "brierss": ["Brier's Score", lambda sim, obs: np.sum(sim - obs) ** 2 / len(sim)],
-    "mae": ["Mean Absolute Error", he.mae],
-    "mean": ["Mean", lambda x: x],
-    "stdev": ["Standard deviation", lambda x: x],
-    "acc": ["Anomaly correlation coefficient (ACC)", he.acc],
-    "d1": ["Index of agreement (d1)", he.d1],
-    "d1_p": ["Legate-McCabe Index of Agreement", he.d1_p],
-    "d": ["Index of agreement (d)", he.d],
-    "dmod": ["Modified index of agreement (dmod)", he.dmod],
-    "drel": ["Relative index of agreement (drel)", he.drel],
-    "dr": ["refined index of agreement (dr)", he.dr],
-    "ed": ["Euclidean distance in vector space", he.ed],
-    "g_mean_diff": ["Geometric mean difference", he.g_mean_diff],
-    "h10_mahe": ["H10 mean absolute error", he.h10_mahe],
-    "h10_mhe": ["H10 mean error", he.h10_mhe],
-    "h10_rmshe": ["H10 root mean square error", he.h10_rmshe],
-    "h1_mahe": ["H1 absolute error", he.h1_mahe],
-    "h1_mhe": ["H1 mean error", he.h1_mhe],
-    "h1_rmshe": ["H1 root mean square error", he.h1_rmshe],
-    "h2_mahe": ["H2 mean absolute error", he.h2_mahe],
-    "h2_mhe": ["H2 mean error", he.h2_mhe],
-    "h2_rmshe": ["H2 root mean square error", he.h2_rmshe],
-    "h3_mahe": ["H3 mean absolute error", he.h3_mahe],
-    "h3_mhe": ["H3 mean error", he.h3_mhe],
-    "h3_rmshe": ["H3 root mean square error", he.h3_rmshe],
-    "h4_mahe": ["H4 mean absolute error", he.h4_mahe],
-    "h4_mhe": ["H4 mean error", he.h4_mhe],
-    "h4_rmshe": ["H4 mean error", he.h4_rmshe],
-    "h5_mahe": ["H5 mean absolute error", he.h5_mahe],
-    "h5_mhe": ["H5 mean error", he.h5_mhe],
-    "h5_rmshe": ["H5 root mean square error", he.h5_rmshe],
-    "h6_mahe": ["H6 mean absolute error", he.h6_mahe],
-    "h6_mhe": ["H6 mean error", he.h6_mhe],
-    "h6_rmshe": ["H6 root mean square error", he.h6_rmshe],
-    "h7_mahe": ["H7 mean absolute error", he.h7_mahe],
-    "h7_mhe": ["H7 mean error", he.h7_mhe],
-    "h7_rmshe": ["H7 root mean square error", he.h7_rmshe],
-    "h8_mahe": ["H8 mean absolute error", he.h8_mahe],
-    "h8_mhe": ["H8 mean error", he.h8_mhe],
-    "h8_rmshe": ["H8 root mean square error", he.h8_rmshe],
-    "irmse": ["Inertial root mean square error (IRMSE)", he.irmse],
-    "lm_index": ["Legate-McCabe Efficiency Index", he.lm_index],
-    "maape": ["Mean Arctangent Absolute Percentage Error (MAAPE)", he.maape],
-    "male": ["Mean absolute log error", he.male],
-    "mapd": ["Mean absolute percentage deviation (MAPD)", he.mapd],
-    "mape": ["Mean absolute percentage error (MAPE)", he.mape],
-    "mase": ["Mean absolute scaled error", he.mase],
-    "mb_r": ["Mielke-Berry R value (MB R)", he.mb_r],
-    "mdae": ["Median absolute error (MdAE)", he.mdae],
-    "mde": ["Median error (MdE)", he.mde],
-    "mdse": ["Median squared error (MdSE)", he.mdse],
-    "mean_var": ["Mean variance", he.mean_var],
-    "me": ["Mean error or bias", he.me],
-    "mle": ["Mean log error", he.mle],
-    "mse": ["Mean squared error", he.mse],
-    "msle": ["Mean squared log error", he.msle],
-    "ned": ["Normalized Euclidian distance in vector space", he.ned],
-    "nrmse_iqr": ["IQR normalized root mean square error", he.nrmse_iqr],
-    "nrmse_mean": ["Mean normalized root mean square error", he.nrmse_mean],
-    "nrmse_range": ["Range normalized root mean square error", he.nrmse_range],
-    "nse_mod": ["Modified Nash-Sutcliffe efficiency (NSE mod)", he.nse_mod],
-    "nse_rel": ["Relative Nash-Sutcliffe efficiency (NSE rel)", he.nse_rel],
-    "rmse": ["Root mean square error", he.rmse],
-    "rmsle": ["Root mean square log error", he.rmsle],
-    "sa": ["Spectral Angle (SA)", he.sa],
-    "sc": ["Spectral Correlation (SC)", he.sc],
-    "sga": ["Spectral Gradient Angle (SGA)", he.sga],
-    "sid": ["Spectral Information Divergence (SID)", he.sid],
-    "smape1": ["Symmetric Mean Absolute Percentage Error (1) (SMAPE1)", he.smape1],
-    "smape2": ["Symmetric Mean Absolute Percentage Error (2) (SMAPE2)", he.smape2],
-    "spearman_r": ["Spearman rank correlation coefficient", he.spearman_r],
-    "ve": ["Volumetric Efficiency (VE)", he.ve],
-    "watt_m": ["Watterson’s M (M)", he.watt_m],
-}
-
-
-@tsutils.transform_args(stats=tsutils.make_list)
-@validate_arguments
-def gof(
-    obs_col=1,
-    sim_col=2,
-    stats: List[
-        Literal[
-            "default",
-            "all",
-            "bias",
-            "pc_bias",
-            "apc_bias",
-            "rmsd",
-            "crmsd",
-            "corrcoef",
-            "coefdet",
-            "murphyss",
-            "nse",
-            "kge09",
-            "kge12",
-            "index_agreement",
-            "brierss",
-            "mae",
-            "mean",
-            "stdev",
-            "acc",
-            "d1",
-            "d1_p",
-            "d",
-            "dmod",
-            "drel",
-            "dr",
-            "ed",
-            "g_mean_diff",
-            "h10_mahe",
-            "h10_mhe",
-            "h10_rmshe",
-            "h1_mahe",
-            "h1_mhe",
-            "h1_rmshe",
-            "h2_mahe",
-            "h2_mhe",
-            "h2_rmshe",
-            "h3_mahe",
-            "h3_mhe",
-            "h3_rmshe",
-            "h4_mahe",
-            "h4_mhe",
-            "h4_rmshe",
-            "h5_mahe",
-            "h5_mhe",
-            "h5_rmshe",
-            "h6_mahe",
-            "h6_mhe",
-            "h6_rmshe",
-            "h7_mahe",
-            "h7_mhe",
-            "h7_rmshe",
-            "h8_mahe",
-            "h8_mhe",
-            "h8_rmshe",
-            "irmse",
-            "lm_index",
-            "maape",
-            "male",
-            "mapd",
-            "mape",
-            "mase",
-            "mb_r",
-            "mdae",
-            "mde",
-            "mdse",
-            "mean_var",
-            "me",
-            "mle",
-            "mse",
-            "msle",
-            "ned",
-            "nrmse_iqr",
-            "nrmse_mean",
-            "nrmse_range",
-            "nse_mod",
-            "nse_rel",
-            "rmse",
-            "rmsle",
-            "sa",
-            "sc",
-            "sga",
-            "sid",
-            "smape1",
-            "smape2",
-            "spearman_r",
-            "ve",
-            "watt_m",
-        ],
-    ] = "default",
-    replace_nan=None,
-    replace_inf=None,
-    remove_neg=False,
-    remove_zero=False,
-    start_date=None,
-    end_date=None,
-    round_index=None,
-    clean=False,
-    index_type="datetime",
-    source_units=None,
-    target_units=None,
-    kge_sr: float = 1.0,
-    kge09_salpha: float = 1.0,
-    kge12_sgamma: float = 1.0,
-    kge_sbeta: float = 1.0,
-):
-    """Will calculate goodness of fit statistics between two time-series."""
-
-    if "default" in stats:
-        stats = [
-            "me",
-            "pc_bias",
-            "apc_bias",
-            "rmsd",
-            "crmsd",
-            "corrcoef",
-            "coefdet",
-            "murphyss",
-            "nse",
-            "kge09",
-            "kge12",
-            "index_agreement",
-            "brierss",
-            "mae",
-            "mean",
-            "stdev",
-        ]
-    elif "all" in stats:
-        stats = stats_dict.keys()
-
-    # Use dropna='no' to get the lengths of both time-series.
-    tsd = tsutils.common_kwds(
-        input_ts=[obs_col, sim_col],
-        index_type=index_type,
-        start_date=start_date,
-        end_date=end_date,
-        round_index=round_index,
-        dropna="no",
-        source_units=source_units,
-        target_units=target_units,
-        clean=clean,
-    )
-    if len(tsd.columns) != 2:
-        raise ValueError(
-            tsutils.error_wrapper(
-                """
-The "gof" requires only two time-series, the first one is the observed values
-and the second is the simulated.  """
-            )
-        )
-    lennao, lennas = tsd.isna().sum()
-
-    tsd = tsd.dropna(how="any")
-
-    statval = []
-
-    obs = tsd.iloc[:, 0].astype("float64")
-    sim = tsd.iloc[:, 1].astype("float64")
-
-    nstats = [i for i in stats if i not in ("mean", "stdev")]
-
-    for stat in nstats:
-        extra_args = {
-            "replace_nan": replace_nan,
-            "replace_inf": replace_inf,
-            "remove_neg": remove_neg,
-            "remove_zero": remove_zero,
-        }
-        if stat in ("crmsd", "murphyss", "brierss", "pc_bias", "apc_bias"):
-            extra_args = {}
-        proc = stats_dict[stat]
-        if stat == "kge09":
-            extra_args = {"s": (kge_sr, kge09_salpha, kge_sbeta)}
-        if stat == "kge12":
-            extra_args = {"s": (kge_sr, kge12_sgamma, kge_sbeta)}
-        statval.append(
-            [
-                proc[0],
-                proc[1](sim, obs, **extra_args),
-            ]
-        )
-
-    statval.extend(
-        (
-            ["Common count observed and simulated", len(tsd.index)],
-            ["Count of NaNs", None, lennao, lennas],
-        )
-    )
-
-    if "mean" in stats:
-        statval.append(["Mean", None, obs.mean(), sim.mean()])
-
-    if "stdev" in stats:
-        statval.append(["Standard deviation", None, obs.std(), sim.std()])
-
-    return statval
 
 
 def main():

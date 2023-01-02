@@ -181,8 +181,8 @@ END LIST_OUTPUT
 START WRITE_PEST_FILES
 # General information
   CONTEXT all
-  TEMPLATE_FILE p2p_base.tpl
-  MODEL_INPUT_FILE p2p_base.dat
+  TEMPLATE_FILE par2par_base.tpl
+  MODEL_INPUT_FILE par2par_base.dat
   PARAMETER_DATA_FILE parm.dat
   PARAMETER_GROUP_FILE group.dat
   NEW_PEST_CONTROL_FILE atticaq2.pst

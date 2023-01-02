@@ -16,7 +16,6 @@ Table of Contents
    :maxdepth: 2
 
    readme
-   notebooks
    command_line
    function_summary
    contributing
