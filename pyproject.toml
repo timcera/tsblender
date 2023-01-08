@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tsblender"
 dynamic = ["version", "readme"]
-description = "Command line script and Python library to manipulate time series."
+description = "Drop-in replacement for TSPROC that is a utility for inverse modeling with PEST."
 dependencies = [
     "python-dateutil",
     "pyemu",
@@ -108,3 +108,6 @@ version = {file = "VERSION"}
 [tool.setuptools.packages.find]
 where = ["src"]
 exclude = ["examples*", "tools*", "docs*", "tsblender.tests*"]
+
+[tool.isort]
+profile = "black"
