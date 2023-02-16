@@ -1,9 +1,8 @@
-import os
 import shlex
 import subprocess
 import sys
 
-from setuptools import find_packages, setup
+from setuptools import setup
 
 pkg_name = "tsblender"
 
