@@ -6,7 +6,6 @@ License: LGPL2
 """
 
 import datetime
-import warnings
 
 import numpy as np
 import pandas as pd
@@ -131,7 +130,7 @@ def readWDM(wdmfile, hdffile, compress_output=False):
                 sacnt = iarray[index + psa - 1]
             pdat = iarray[index + 10]
             pdatv = iarray[index + 11]
-            frepos = iarray[index + pdat]
+            iarray[index + pdat]
 
             # get attributes
             dattr = {
@@ -404,10 +403,10 @@ def get_wdm_data_set(wdmfile, attributes):
     Get single time series data from a WDM file
     based on a collection of attributes (name-value pairs)
     """
-    if attributes == None:
+    if attributes is None:
         return None
 
-    search_loc = attributes["location"]
+    attributes["location"]
     search_cons = attributes["constituent"]
     search_dsn = attributes["dsn"]
 
@@ -443,12 +442,7 @@ def get_wdm_data_set(wdmfile, attributes):
     if len(dsnlist) != ntimeseries:
         print("PROGRAM ERROR, wrong number of DSN records found")
 
-    summary = []
-    summaryindx = []
-
     # check to see which extra attributes are on each dsn
-    columns_to_add = []
-    search = ["STAID", "STNAM", "SCENARIO", "CONSTITUENT", "LOCATION"]
 
     for index in dsnlist:
         # get layout information for TimeSeries Dataset frame
@@ -458,7 +452,7 @@ def get_wdm_data_set(wdmfile, attributes):
             sacnt = iarray[index + psa - 1]
         pdat = iarray[index + 10]
         pdatv = iarray[index + 11]
-        frepos = iarray[index + pdat]
+        iarray[index + pdat]
 
         # get attributes
         dattr = {

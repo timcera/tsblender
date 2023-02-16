@@ -6,10 +6,9 @@ import sys
 import warnings
 from collections import OrderedDict
 from contextlib import suppress
-from typing import List, Optional, Union
+from typing import Literal, Optional, Union
 
 import cltoolbox
-import HydroErr as he
 import numpy as np
 import pandas as pd
 import pyemu
@@ -23,7 +22,6 @@ from toolbox_utils.readers.hbn import hbn_extract as _get_series_hbn
 from toolbox_utils.readers.plotgen import plotgen_extract as _get_series_pgen
 from toolbox_utils.readers.wdm import wdm_extract as _get_series_wdm
 from tstoolbox.functions.gof import gof
-from typing_extensions import Literal
 
 warnings.filterwarnings("ignore")
 
@@ -776,7 +774,6 @@ class Tables:
     ):
         series = self._get_series(series_name)
         if filter_type.lower() in ("butterworth"):
-
             scipy_pass = {
                 "low": "lowpass",
                 "high": "highpass",
@@ -795,7 +792,6 @@ class Tables:
                 sos = signal.butter(stages, cf, scipy_pass, fs=fs, output="sos")
             filtered = signal.sosfilt(sos, series)
         elif filter_type.lower() in ("baseflow_separation"):
-
             filtered = baseflow_sep.chapman(series)
         self._join(new_series_name, series=filtered)
 
