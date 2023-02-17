@@ -22,7 +22,7 @@ dependencies = [
     "toolbox_utils >= 3.0.0, < 4.0.0",
     "pydantic",
     "hspf_reader",
-    "tstoolbox >= 104.0.0",
+    "tstoolbox >= 106.0.0",
     "hydrotoolbox >= 2.0.0"
 ]
 authors = [
