@@ -15,7 +15,11 @@ import pyemu
 from dateutil.parser import parse
 from hydrotoolbox import hydrotoolbox
 from hydrotoolbox.hydrotoolbox import baseflow_sep
-from pydantic import validate_arguments
+
+try:
+    from pydantic import validate_call
+except ImportError:
+    from pydantic import validate_arguments as validate_call
 from scipy import signal
 from toolbox_utils import tsutils
 from toolbox_utils.readers.hbn import hbn_extract as _get_series_hbn
@@ -755,7 +759,7 @@ class Tables:
         series = series.iloc[:, 0]
         return series
 
-    @validate_arguments
+    @validate_call
     def digital_filter(
         self,
         series_name: str,
@@ -795,7 +799,7 @@ class Tables:
             filtered = baseflow_sep.chapman(series)
         self._join(new_series_name, series=filtered)
 
-    @validate_arguments
+    @validate_call
     def erase_entity(
         self,
         series_name: Optional[str] = None,
@@ -836,7 +840,7 @@ class Tables:
             self.g_table = self.g_table.drop(g_table_name.upper(), axis="columns")
             del self.g_table_metadata[g_table_name.upper()]
 
-    @validate_arguments
+    @validate_call
     def exceedance_time(
         self,
         series_name: str,
@@ -932,7 +936,7 @@ class Tables:
             "under_over": under_over,
         }
 
-    @validate_arguments
+    @validate_call
     def flow_duration(
         self,
         series_name: str,
@@ -972,7 +976,7 @@ class Tables:
             "end_date": series.index[-1],
         }
 
-    @validate_arguments
+    @validate_call
     def get_series_csv(
         self,
         file: str,
@@ -992,7 +996,7 @@ class Tables:
         )
         self._join(new_series_name, series=ts)
 
-    @validate_arguments
+    @validate_call
     def get_series_gsflow_gage(
         self,
         file: str,
@@ -1057,7 +1061,7 @@ class Tables:
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
-    @validate_arguments
+    @validate_call
     def get_series_statvar(
         self,
         file: str,
@@ -1132,7 +1136,7 @@ class Tables:
             self._join(nsn.upper(), series=nts)
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
 
-    @validate_arguments
+    @validate_call
     def get_series_hspfbin(
         self,
         file: str,
@@ -1167,7 +1171,7 @@ class Tables:
         )
         self._join(new_series_name, series=ts)
 
-    @validate_arguments
+    @validate_call
     def get_series_plotgen(
         self,
         file: str,
@@ -1203,7 +1207,7 @@ class Tables:
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
-    @validate_arguments
+    @validate_call
     def get_series_ssf(
         self,
         file: str,
@@ -1268,7 +1272,7 @@ class Tables:
             self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
             self._join(nsn.upper(), series=nts)
 
-    @validate_arguments
+    @validate_call
     def get_series_wdm(
         self,
         file: str,
@@ -1295,7 +1299,7 @@ class Tables:
         )
         self._join(new_series_name, series=ts)
 
-    @validate_arguments
+    @validate_call
     def get_series_xlsx(
         self,
         new_series_name: str,
@@ -1318,7 +1322,7 @@ class Tables:
             ts = ts.loc[:, column]
         self._join(new_series_name, series=ts)
 
-    @validate_arguments
+    @validate_call
     def hydrologic_indices(
         self,
         series_name: str,
@@ -1400,7 +1404,7 @@ class Tables:
             "end_date": series.index[-1],
         }
 
-    @validate_arguments
+    @validate_call
     def hydro_events(
         self,
         series_name: str,
@@ -1426,7 +1430,7 @@ class Tables:
 
         self._join(new_series_name, series=ts)
 
-    @validate_arguments
+    @validate_call
     def list_output(
         self,
         file,
@@ -1660,7 +1664,7 @@ class Tables:
                         )
                         fp.write(outp)
 
-    @validate_arguments
+    @validate_call
     def new_series_uniform(
         self,
         new_series_name: str,
@@ -1689,7 +1693,7 @@ class Tables:
         ndf = pd.DataFrame(data=[new_series_value] * len(ndr), index=ndr)
         self._join(new_series_name, series=ndf)
 
-    @validate_arguments
+    @validate_call
     def new_time_base(
         self, series_name: str, new_series_name: str, tb_series_name: str
     ):
@@ -1701,7 +1705,7 @@ class Tables:
         ]
         self._join(new_series_name, series=nseries)
 
-    @validate_arguments
+    @validate_call
     def period_statistics(
         self,
         series_name: str,
@@ -1756,7 +1760,7 @@ class Tables:
             series = series.resample(f"A{tab}{wyt}").agg(method)
         self._join(new_series_name, series=series)
 
-    @validate_arguments
+    @validate_call
     def reduce_time_span(
         self,
         series_name: str,
@@ -1774,7 +1778,7 @@ class Tables:
         )
         self._join(new_series_name, series=series)
 
-    @validate_arguments
+    @validate_call
     def series_base_level(
         self,
         series_name: str,
@@ -1796,7 +1800,7 @@ class Tables:
             self.erase_entity(series_name=series_name)
         self._join(new_series_name, series=series)
 
-    @validate_arguments
+    @validate_call
     def series_clean(
         self,
         series_name: str,
@@ -1814,7 +1818,7 @@ class Tables:
             series[series < upper_erase_boundary] = substitute_value
         self._join(new_series_name, series=series)
 
-    @validate_arguments
+    @validate_call
     def series_compare(
         self,
         series_name_sim: str,
@@ -1925,7 +1929,7 @@ class Tables:
             "end_date": series_sim.index[-1],
         }
 
-    @validate_arguments
+    @validate_call
     def series_difference(
         self,
         series_name: str,
@@ -1935,7 +1939,7 @@ class Tables:
         series = series.diff()
         self._join(new_series_name, series=series)
 
-    @validate_arguments
+    @validate_call
     def series_displace(
         self,
         series_name,
@@ -1948,7 +1952,7 @@ class Tables:
         series[-lag_increment:] = fill_value  # Verify what TSPROC does.
         self._join(new_series_name, series=series)
 
-    @validate_arguments
+    @validate_call
     def series_equation(
         self,
         new_series_name: str,
@@ -1963,7 +1967,7 @@ class Tables:
         series = eval(equation)
         self._join(new_series_name, series=series)
 
-    @validate_arguments
+    @validate_call
     def series_statistic(
         self,
         series_name: str,
@@ -2063,7 +2067,7 @@ class Tables:
             date_format = "%m/%d/%Y"
         self.date_format = date_format
 
-    @validate_arguments
+    @validate_call
     def v_table_to_series(
         self,
         new_series_name,
@@ -2074,7 +2078,7 @@ class Tables:
         series = v_table  # FIX!
         self._join(new_series_name, series=series)
 
-    @validate_arguments
+    @validate_call
     def volume_calculation(
         self,
         series_name,
@@ -2147,7 +2151,7 @@ class Tables:
             "source_name": series_name,
         }
 
-    @validate_arguments
+    @validate_call
     def usgs_hysep(
         self,
         series_name: str,
@@ -2177,7 +2181,7 @@ class Tables:
 
         self._join(new_series_name, series=ts)
 
-    @validate_arguments
+    @validate_call
     def write_pest_files(
         self,
         new_pest_control_file,
