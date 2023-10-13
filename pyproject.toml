@@ -12,48 +12,49 @@ name = "tsblender"
 dynamic = ["version", "readme"]
 description = "Drop-in replacement for TSPROC that is a utility for inverse modeling with PEST."
 dependencies = [
-    "python-dateutil",
-    "pyemu",
     "cltoolbox >= 1.0.0",
-    "pandas",
-    "numpy",
-    "pint-pandas",
-    "xlsxwriter",
-    "toolbox_utils >= 5.0.0, < 6.0.0",
-    "pydantic",
+    "flopy",
     "hspf_reader",
+    "hydrotoolbox >= 2.0.0",
+    "numpy",
+    "pandas",
+    "pint-pandas",
+    "pydantic",
+    "pyemu",
+    "python-dateutil",
+    "toolbox_utils >= 5.0.0, < 6.0.0",
     "tstoolbox >= 106.0.0",
-    "hydrotoolbox >= 2.0.0"
+    "xlsxwriter"
 ]
 authors = [
     {name = "Tim Cera", email = "tim@cerazone.net"}
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
-    "Intended Audience :: Science/Research",
-    "Intended Audience :: End Users/Desktop",
-    "Intended Audience :: Developers",
     "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
-    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Information Analysis",
     "Topic :: Software Development :: Libraries :: Python Modules"
 ]
 keywords = [
-    "time-series",
-    "parameter-estimation",
-    "tsproc",
-    "cli-app",
     "baseflow",
+    "cli-app",
     "hydrology",
-    "python"
+    "parameter-estimation",
+    "python",
+    "time-series",
+    "tsproc"
 ]
 license = {text = "BSD-3-Clause"}
 requires-python = ">=3.8"
