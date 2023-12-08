@@ -15,11 +15,17 @@ import pyemu
 from dateutil.parser import parse
 from hydrotoolbox import hydrotoolbox
 from hydrotoolbox.hydrotoolbox import baseflow_sep
+from numpy import abs
+from numpy import arccos as acos
+from numpy import arcsin as asin
+from numpy import arctan as atan
+from numpy import cos, cosh, exp, log, log10, sin, sinh, sqrt, tan, tanh
 
 try:
     from pydantic import validate_call
 except ImportError:
     from pydantic import validate_arguments as validate_call
+
 from scipy import signal
 from toolbox_utils import tsutils
 from toolbox_utils.readers.hbn import hbn_extract as _get_series_hbn
@@ -50,6 +56,7 @@ deprecated = {
 
 
 def natural_keys(text):
+    """Sort strings with embedded numbers naturally."""
     words = text.split(":")
     lets = words[0][:2]
     nums = words[0][2:]
@@ -59,6 +66,8 @@ def natural_keys(text):
 
 
 class Tables:
+    """Class to hold the tables."""
+
     def __init__(self):
         self.series = {}
         self.current_series = {}
@@ -119,6 +128,20 @@ class Tables:
                     "G_TABLE_NAME": None,
                 },
                 "f": self.erase_entity,
+            },
+            "EXCEEDENCE_TIME": {
+                "args": [
+                    "CONTEXT",
+                    "SERIES_NAME",
+                    "NEW_E_TABLE_NAME",
+                    "EXCEEDENCE_TIME_UNITS",
+                ],
+                "kwds": {
+                    "UNDER_OVER": "over",
+                    "FLOW": None,
+                    "DELAY": None,
+                },
+                "f": self.exceedance_time,
             },
             "EXCEEDANCE_TIME": {
                 "args": [
@@ -308,6 +331,41 @@ class Tables:
                 },
                 "f": lambda x: x,
             },
+            "GET_SERIES_TETRAD": {
+                "args": [
+                    "CONTEXT",
+                    "FILE",
+                    "NEW_SERIES_NAME",
+                    "WELL_NAME",
+                    "OBJECT_NAME",
+                    "MODEL_REFERENCE_DATE",
+                    "MODEL_REFERENCE_TIME",
+                ],
+                "kwds": {
+                    "DATE_1": None,
+                    "TIME_1": None,
+                    "DATE_2": None,
+                    "TIME_2": None,
+                },
+                "f": self.get_series_tetrad,
+            },
+            "GET_SERIES_UFORE_HYDRO": {
+                "args": [
+                    "CONTEXT",
+                    "FILE",
+                    "NEW_SERIES_NAME",
+                    "MODEL_REFERENCE_DATE",
+                    "MODEL_REFERENCE_TIME",
+                    "TIME_INCREMENT",
+                ],
+                "kwds": {
+                    "DATE_1": None,
+                    "TIME_1": None,
+                    "DATE_2": None,
+                    "TIME_2": None,
+                },
+                "f": self.get_series_ufore_hydro,
+            },
             "GET_SERIES_WDM": {
                 "args": ["CONTEXT", "NEW_SERIES_NAME", "FILE", "DSN"],
                 "kwds": {
@@ -349,6 +407,18 @@ class Tables:
                     "TIME_2": None,
                 },
                 "f": self.hydro_events,
+            },
+            "HYDRO_PEAKS": {
+                "args": ["CONTEXT", "SERIES_NAME", "NEW_SERIES_NAME"],
+                "kwds": {
+                    "WINDOW": 1,
+                    "MIN_PEAK": 0,
+                    "DATE_1": None,
+                    "TIME_1": None,
+                    "DATE_2": None,
+                    "TIME_2": None,
+                },
+                "f": self.hydro_peaks,
             },
             "HYDROLOGIC_INDICES": {
                 "args": ["CONTEXT", "SERIES_NAME", "NEW_G_TABLE_NAME"],
@@ -605,11 +675,13 @@ class Tables:
         }
 
     def _get_series(self, series_name: str):
+        """Get a series from the series dataframe."""
         series_name = series_name.upper()
         whichdf = self.current_series[series_name]
         return self.series[whichdf][series_name]
 
     def _get_v_table(self, v_table_name: str):
+        """Get a v_table from the v_table dataframe."""
         return self.v_table[v_table_name].dropna()
 
     def _join(
@@ -675,18 +747,31 @@ class Tables:
             except ValueError:
                 self.g_table = g_table
 
-    def _normalize_dates(self, date, time="00:00:00"):
-        if date is None:
-            return None
+    def _normalize_times(self, time="00:00:00"):
         if time is None:
             time = "00:00:00"
-        hours, minutes, seconds = time.split(":")
+        words = time.split(":")
+        if len(words) == 3:
+            hours, minutes, seconds = (int(i) for i in words)
+        elif len(words) == 2:
+            hours, minutes = (int(i) for i in words)
+            seconds = 0
+        elif len(words) == 1:
+            hours = int(words[0])
+            minutes = 0
+            seconds = 0
+        return hours, minutes, seconds
+
+    def _normalize_datetimes(self, date, time="00:00:00"):
+        if date is None:
+            return None
+        hours, minutes, seconds = self._normalize_times(time)
         delta = pd.Timedelta(days=0)
         if int(hours) == 24:
             hours = 0
             delta = pd.Timedelta(days=1)
         return (
-            parse(f"{date} {int(hours):02}:{int(minutes):02}:{int(seconds):02}") + delta
+            parse(f"{date} {hours:02}:{minutes:02}:{seconds:02}") + delta
         ).isoformat()
 
     def _normalize_bools(self, torf):
@@ -697,9 +782,7 @@ class Tables:
                 return True
             if torf.lower() in ("n", "no"):
                 return False
-        if torf:
-            return True
-        return False
+        return bool(torf)
 
     def _there_can_be_only_one(self, inlist, errstr):
         inlist = [self._normalize_bools(i) for i in inlist]
@@ -730,8 +813,7 @@ class Tables:
 
         log = self._normalize_bools(log)
 
-        test = [log]
-        test.append(any(minmaxmeans.keys()))
+        test = [log, any(minmaxmeans.keys())]
         self._there_can_be_only_one(
             test, "'LOG' or any of the following: 'MAXMEAN_n', 'MINMEAN_n'"
         )
@@ -752,8 +834,8 @@ class Tables:
 
         series = tsutils.common_kwds(
             series,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
 
         series = series.iloc[:, 0]
@@ -776,6 +858,7 @@ class Tables:
         clip_input: Union[bool, Literal["yes", "no"]] = False,
         clip_zero: Union[bool, Literal["yes", "no"]] = False,
     ):
+        """Filter a time series."""
         series = self._get_series(series_name)
         if filter_type.lower() in ("butterworth"):
             scipy_pass = {
@@ -809,6 +892,7 @@ class Tables:
         e_table_name: Optional[str] = None,
         g_table_name: Optional[str] = None,
     ):
+        """Erase a column in a series, or *_table."""
         if series_name is not None:
             series = series_name.upper()
             self.series[self.current_series[series]] = self.series[
@@ -862,6 +946,7 @@ class Tables:
         under_over: Literal["over", "under"] = "over",
         **flow_delay,
     ):
+        """Calculate the exceedance time for a time series."""
         series = self._get_series(series_name)
 
         year = datetime.timedelta(days=365, hours=6, minutes=9, seconds=9)
@@ -872,6 +957,12 @@ class Tables:
             "hour": datetime.timedelta(hours=1),
             "min": datetime.timedelta(minutes=1),
             "sec": datetime.timedelta(seconds=1),
+            "years": year,
+            "months": year / 12,
+            "days": datetime.timedelta(days=1),
+            "hours": datetime.timedelta(hours=1),
+            "mins": datetime.timedelta(minutes=1),
+            "secs": datetime.timedelta(seconds=1),
         }[exceedance_time_units.lower().rstrip("s")]
 
         input_flow = flow_delay.get("flow")
@@ -884,7 +975,7 @@ class Tables:
             input_delay = [input_delay]
         if input_delay == [0]:
             input_delay = [0] * len(input_flow)
-
+        print(f"{flow_delay=}")
         e_table = hydrotoolbox.exceedance_time(
             *input_flow,
             input_ts=series,
@@ -896,10 +987,11 @@ class Tables:
         # LIST_OUTPUT includes a fraction of the total time column and this is
         # an easy way (by using series.min or series.max) to get the total
         # time.
-        if under_over == "over":
-            tot_threshold = series.min()
-        else:
-            tot_threshold = series.max()
+        tot_threshold = series.min() if under_over == "over" else series.max()
+        print(f"{tot_threshold=}")
+        print(f"{series.dropna()=}")
+        print(f"{exceedance_time_units=}")
+        print(f"{under_over=}")
         tot_table = hydrotoolbox.exceedance_time(
             tot_threshold,
             input_ts=series,
@@ -907,15 +999,15 @@ class Tables:
             under_over=under_over,
             delays=[0],
         )
-
+        print(f"{tot_table=}")
         input_delay = [i * punits for i in input_delay]
-
         keys = []
         etv = []
         e_totv = []
         for flw, dly in zip(input_flow, input_delay):
             keys.append((flw, dly / punits))
             etv.append(e_table[flw])
+            print(tot_table)
             e_totv.append(e_table[flw] / tot_table[tot_threshold])
 
         # Create and join the new e_table.
@@ -940,25 +1032,27 @@ class Tables:
     def flow_duration(
         self,
         series_name: str,
-        new_g_table_name: str = None,
-        new_table_name: str = None,
+        new_g_table_name: Optional[str] = None,
+        new_table_name: Optional[str] = None,
         exceedance_probabilities=(99.5, 99, 98, 95, 90, 75, 50, 25, 10, 5, 2, 1, 0.5),
         date_1=None,
         time_1=None,
         date_2=None,
         time_2=None,
     ):
+        """Calculate the flow duration curve for a time series."""
         self._there_can_be_only_one(
             [new_g_table_name, new_table_name], '"new_g_table_name" or "new_table_name"'
         )
 
         new_g_table_name = new_g_table_name or new_table_name
 
-        series = self._get_series(series_name)
-        series = tsutils.common_kwds(
-            series,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+        series = self._prepare_series(
+            series_name,
+            date_1=date_1,
+            time_1=time_1,
+            date_2=date_2,
+            time_2=time_2,
         )
 
         exceedance_probabilities = [float(i) for i in exceedance_probabilities]
@@ -982,17 +1076,18 @@ class Tables:
         file: str,
         new_series_name: str,
         usecol: Union[int, str] = None,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
+        """Get a time series from a CSV file."""
         with suppress(ValueError):
             usecol = int(usecol)
         ts = tsutils.common_kwds(
             f"{file},{usecol}",
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
         self._join(new_series_name, series=ts)
 
@@ -1005,11 +1100,12 @@ class Tables:
         model_reference_date: str,
         model_reference_time: str,
         time_units_per_day: int = 1,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
+        """Get a time series from a GSFLOW gage file."""
         if isinstance(data_type, str):
             data_type = [data_type]
         if isinstance(new_series_name, str):
@@ -1035,14 +1131,13 @@ class Tables:
 
         ts.index = (
             unit * ts.index
-            + pd.to_datetime(model_reference_date + " " + model_reference_time)
-            - unit
-        )
+            + pd.to_datetime(f"{model_reference_date} {model_reference_time}")
+        ) - unit
 
         ts = tsutils.common_kwds(
             ts,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
 
         for dt, nsn in zip(data_type, new_series_name):
@@ -1068,11 +1163,12 @@ class Tables:
         variable_name,
         location_id,
         new_series_name,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
+        """Get a time series from a STATVAR file."""
         # Of the repeated keywords, make sure if there is a single item that it
         # is a list.
         if isinstance(variable_name, str):
@@ -1087,7 +1183,7 @@ class Tables:
         with open(file, encoding="ascii") as f:
             num_series = int(f.readline().strip())
             collect = []
-            for ns in range(num_series):
+            for _ in range(num_series):
                 unique_id = f.readline().strip().split()
                 collect.append(unique_id)
         headers = ["_".join(i) for i in collect]
@@ -1112,8 +1208,8 @@ class Tables:
         # Use tsutils.common_kwds to subset the time period.
         ts = tsutils.common_kwds(
             ts,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
 
         # Create a new DataFrame for each variable_name, location_id, and
@@ -1145,11 +1241,12 @@ class Tables:
         operationtype: Literal["PERLND", "IMPLND", "RCHRES", "BMPRAC"],
         id: int,
         variable: str,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
+        """Get a time series from a HSPF binary file."""
         ts = _get_series_hbn(
             file,
             interval,
@@ -1166,8 +1263,8 @@ class Tables:
             )
         ts = tsutils.common_kwds(
             ts,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
         self._join(new_series_name, series=ts)
 
@@ -1182,6 +1279,7 @@ class Tables:
         date_2: Optional[str] = None,
         time_2: Optional[str] = None,
     ):
+        """Get a time series from a HSPF PLOTGEN file."""
         if isinstance(label, str):
             label = [label]
         if isinstance(new_series_name, str):
@@ -1189,8 +1287,8 @@ class Tables:
         ts = _get_series_pgen(file)
         ts = tsutils.common_kwds(
             ts,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
         for lb, nsn in zip(label, new_series_name):
             try:
@@ -1218,6 +1316,7 @@ class Tables:
         date_2: Optional[str] = None,
         time_2: Optional[str] = None,
     ):
+        """Get a time series from a SSF file."""
         if isinstance(site, str):
             site = [site]
         if isinstance(new_series_name, str):
@@ -1253,8 +1352,8 @@ class Tables:
 
         ts = tsutils.common_kwds(
             ts,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
         ts.index = ts.index.to_period(ts.index[1] - ts.index[0]).to_timestamp()
         for st, nsn in zip(site, new_series_name):
@@ -1273,29 +1372,89 @@ class Tables:
             self._join(nsn.upper(), series=nts)
 
     @validate_call
+    def get_series_tetrad(
+        self,
+        file: str,
+        new_series_name: str,
+        well_name: str,
+        object_name: str,
+        model_reference_date: str,
+        model_reference_time: str,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
+    ):
+        """Get a time series from a TETRAD file."""
+        start_date = self._normalize_datetimes(date_1, time_1)
+        end_date = self._normalize_datetimes(date_2, time_2)
+        model_reference_date = self._normalize_datetimes(
+            model_reference_date, model_reference_time
+        )
+
+    @validate_call
+    def get_series_ufore_hydro(
+        self,
+        file: str,
+        new_series_name: str,
+        model_reference_date: str,
+        model_reference_time: str,
+        time_increment: str,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
+    ):
+        """Get a time series from a UFORE hydrology file."""
+        start_date = self._normalize_datetimes(date_1, time_1)
+        end_date = self._normalize_datetimes(date_2, time_2)
+        model_reference_date = self._normalize_datetimes(
+            model_reference_date, model_reference_time
+        )
+        time_increment = pd.Timedelta(time_increment)
+
+        with open(file, encoding="ascii") as f:
+            nterm = int(f.readline())
+            ts = [float(f.readline()) for _ in range(nterm)]
+        ts_range = pd.date_range(
+            start=model_reference_date,
+            periods=nterm,
+            freq=time_increment,
+        )
+        ts = pd.DataFrame(ts, index=ts_range)
+
+        ts = tsutils.common_kwds(
+            ts,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        self._join(new_series_name, series=ts)
+
+    @validate_call
     def get_series_wdm(
         self,
         file: str,
         new_series_name: str,
         dsn: int,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
         def_time="00:00:00",
         filter: Optional[int] = None,
     ):
+        """Get a time series from a WDM file."""
         ts = pd.DataFrame(_get_series_wdm(file, dsn))
-        hh, mm, ss = def_time.split(":")
-        if int(hh) == 24:
-            delta = pd.Timedelta(days=1, minutes=int(mm), seconds=int(ss))
+        hh, mm, ss = self._normalize_times(def_time)
+        if hh == 24:
+            delta = pd.Timedelta(days=1, minutes=mm, seconds=ss)
         else:
-            delta = pd.Timedelta(hours=int(hh), minutes=int(mm), seconds=int(ss))
+            delta = pd.Timedelta(hours=hh, minutes=mm, seconds=ss)
         ts.index = ts.index + delta
         ts = tsutils.common_kwds(
             ts,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
         self._join(new_series_name, series=ts)
 
@@ -1306,15 +1465,16 @@ class Tables:
         file: str,
         sheet: Union[int, str] = 1,
         column: Union[int, str] = 1,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
+        """Get a time series from an Excel file."""
         ts = tsutils.common_kwds(
             f"{file},{sheet}",
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
         try:
             ts = ts.iloc[:, int(column) - 1]
@@ -1327,7 +1487,7 @@ class Tables:
         self,
         series_name: str,
         new_g_table_name: str,
-        drainage_area: str = 1,
+        drainage_area: Union[int, str] = 1,
         use_median: bool = False,
         stream_classification=None,
         flow_component=None,
@@ -1348,6 +1508,7 @@ class Tables:
         time_2=None,
         current_definitions=False,
     ):
+        """Calculate hydrologic indices for a time series."""
         mapper = {
             "MA": ma,
             "ML": ml,
@@ -1377,11 +1538,12 @@ class Tables:
         if flow_component is not None:
             ind.extend([f"{fc}" for fc in tsutils.make_list(flow_component, sep=" ")])
 
-        series = self._get_series(series_name)
-        series = tsutils.common_kwds(
-            series,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+        series = self._prepare_series(
+            series_name,
+            date_1=date_1,
+            time_1=time_1,
+            date_2=date_2,
+            time_2=time_2,
         )
 
         gtab = hydrotoolbox.indices(
@@ -1409,26 +1571,54 @@ class Tables:
         self,
         series_name: str,
         new_series_name: str,
-        rise_lag,
-        fall_lag,
+        rise_lag: int,
+        fall_lag: int,
         window: int = 1,
-        min_peak: int = 0,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        min_peak: float = 0.0,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
-        ts = pd.DataFrame(self._get_series(series_name))
-        ts = tsutils.common_kwds(
-            ts,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+        """Calculate hydrologic events for a time series."""
+        series = self._prepare_series(
+            series_name,
+            date_1=date_1,
+            time_1=time_1,
+            date_2=date_2,
+            time_2=time_2,
         )
-        ts = hydrotoolbox.storm_events(
-            rise_lag, fall_lag, input_ts=ts, window=window, min_peak=min_peak
+        series = hydrotoolbox.storm_events(
+            rise_lag, fall_lag, input_ts=series, window=window, min_peak=min_peak
         )
 
-        self._join(new_series_name, series=ts)
+        self._join(new_series_name, series=series)
+
+    @validate_call
+    def hydro_peaks(
+        self,
+        series_name: str,
+        new_series_name: str,
+        window: int = 1,
+        min_peak: float = 0.0,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
+    ):
+        """Calculate hydrologic peaks for a time series."""
+        series = self._prepare_series(
+            series_name,
+            date_1=date_1,
+            time_1=time_1,
+            date_2=date_2,
+            time_2=time_2,
+        )
+        series = hydrotoolbox.storm_events(
+            0, 0, input_ts=series, window=window, min_peak=min_peak
+        )
+
+        self._join(new_series_name, series=series)
 
     @validate_call
     def list_output(
@@ -1442,6 +1632,7 @@ class Tables:
         e_table_name=None,
         g_table_name=None,
         _ins_file="",
+        separate_files=False,
     ):
         """
         List the output in the following order:
@@ -1489,7 +1680,7 @@ class Tables:
                 series = self._get_series(sern.upper())
                 start, end = self.series_dates[sern.upper()]
                 for rowno, (index, value) in enumerate(
-                    series.loc[start:end].dropna().iteritems()
+                    series.loc[start:end].dropna().items()
                 ):
                     if series_format == "long":
                         date = index.strftime(self.date_format)
@@ -1530,7 +1721,7 @@ class Tables:
 """
                 )
                 fp.write(outp)
-                for index, value in st.iteritems():
+                for index, value in st.items():
                     outp = (
                         "1l {s_tab}  \n"
                         if _ins_file
@@ -1559,7 +1750,7 @@ class Tables:
 """
                 )
                 fp.write(outp)
-                for index, value in stats.iteritems():
+                for index, value in stats.items():
                     outp = (
                         "FIXME"
                         if _ins_file
@@ -1578,7 +1769,7 @@ class Tables:
                 )
                 fp.write(outp)
                 v_table = self._get_v_table(v_tab.upper())
-                for index, value in v_table.dropna().iteritems():
+                for index, value in v_table.dropna().items():
                     outp = (
                         "FIXME"
                         if _ins_file
@@ -1602,7 +1793,7 @@ class Tables:
 """
                 )
                 fp.write(outp)
-                for index, value in e_TAB.dropna().iteritems():
+                for index, value in e_TAB.dropna().items():
                     outp = (
                         "FIXME"
                         if _ins_file
@@ -1631,7 +1822,7 @@ class Tables:
                     fp.write(outp)
                     g_table = self.g_table[g_tab.upper()].dropna()
                     g_table = g_table.sort_index(ascending=False)
-                    for index, value in g_table.dropna().iteritems():
+                    for index, value in g_table.dropna().items():
                         outp = (
                             "FIXME"
                             if _ins_file
@@ -1656,7 +1847,7 @@ class Tables:
                     sindex = sorted(g_table.index, key=natural_keys)
                     g_table = g_table.loc[sindex]
 
-                    for index, value in g_table.iteritems():
+                    for index, value in g_table.items():
                         outp = (
                             "FIXME"
                             if _ins_file
@@ -1671,11 +1862,12 @@ class Tables:
         new_series_value: float,
         time_interval: int,
         time_unit: str,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
+        """Create a new time series with a uniform value and interval."""
         ptunit = {
             "seconds": "S",
             "minutes": "T",
@@ -1686,8 +1878,8 @@ class Tables:
         }.get(time_unit, time_unit)
         ptunit = f"{time_interval}{ptunit}"
         ndr = pd.date_range(
-            start=self._normalize_dates(date_1, time_1),
-            end=self._normalize_dates(date_2, time_2),
+            start=self._normalize_datetimes(date_1, time_1),
+            end=self._normalize_datetimes(date_2, time_2),
             freq=ptunit,
         )
         ndf = pd.DataFrame(data=[new_series_value] * len(ndr), index=ndr)
@@ -1697,6 +1889,7 @@ class Tables:
     def new_time_base(
         self, series_name: str, new_series_name: str, tb_series_name: str
     ):
+        """Create a new time series with a new time base."""
         tb_series = pd.DataFrame(self._get_series(tb_series_name)).dropna()
         series = pd.DataFrame(self._get_series(series_name))
         nseries = tb_series.join(series, how="outer").iloc[:, 1].astype(float)
@@ -1718,11 +1911,12 @@ class Tables:
         year_type: Literal["water_high", "water_low", "calendar"] = "water_high",
         log: bool = False,
         power: float = 1,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
+        """Calculate period statistics for a time series."""
         series = self._prepare_series(
             series_name,
             log=log,
@@ -1765,16 +1959,18 @@ class Tables:
         self,
         series_name: str,
         new_series_name: str,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
-        series = self._get_series(series_name)
-        series = tsutils.common_kwds(
-            series,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+        """Reduce the time span of a time series."""
+        series = self._prepare_series(
+            series_name,
+            date_1=date_1,
+            time_1=time_1,
+            date_2=date_2,
+            time_2=time_2,
         )
         self._join(new_series_name, series=series)
 
@@ -1789,6 +1985,7 @@ class Tables:
         base_level_time: str,
         negate: bool = False,
     ):
+        """Create a new time series with a base level."""
         series = self._get_series(series_name)
         base_level = self._get_series(base_level_series_name)
         base = base_level[pd.to_datetime(f"{base_level_date} {base_level_time}")]
@@ -1797,7 +1994,7 @@ class Tables:
             series = -series
         if self._normalize_bools(substitute):
             new_series_name = series_name
-            self.erase_entity(series_name=series_name)
+            self.erase_entity(new_series_name=new_series_name)
         self._join(new_series_name, series=series)
 
     @validate_call
@@ -1809,6 +2006,7 @@ class Tables:
         lower_erase_boundary: Optional[float] = None,
         upper_erase_boundary: Optional[float] = None,
     ):
+        """Clean a time series by replacing/removing values outside of a range."""
         if substitute_value == "delete":
             substitute_value = pd.NA
         series = self._get_series(series_name)
@@ -1834,29 +2032,33 @@ class Tables:
         volumetric_efficiency=False,
         exponent=2,
         series_name_base: str = "",
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
-        series_sim = self._get_series(series_name_sim)
-        series_sim = tsutils.common_kwds(
-            series_sim,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+        """Calculate comparison statistics for two time series."""
+        series_sim = self._prepare_series(
+            series_name_sim,
+            date_1=date_1,
+            time_1=time_1,
+            date_2=date_2,
+            time_2=time_2,
         )
-        series_obs = self._get_series(series_name_obs)
-        series_obs = tsutils.common_kwds(
-            series_obs,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+        series_obs = self._prepare_series(
+            series_name_obs,
+            date_1=date_1,
+            time_1=time_1,
+            date_2=date_2,
+            time_2=time_2,
         )
         if series_name_base:
-            series_base = self._get_series(series_name_base)
-            series_base = tsutils.common_kwds(
-                series_base,
-                start_date=self._normalize_dates(date_1, time_1),
-                end_date=self._normalize_dates(date_2, time_2),
+            series_base = self._prepare_series(
+                series_name_base,
+                date_1=date_1,
+                time_1=time_1,
+                date_2=date_2,
+                time_2=time_2,
             )
 
         c_table = [
@@ -1894,17 +2096,10 @@ class Tables:
             stats["Nash-Sutcliffe coefficient:"] = gof(
                 stats="nse", sim_col=series_sim, obs_col=series_obs
             )[0][1]
-        if self._normalize_bools(coefficient_of_efficiency):
-            if exponent == 2:
-                stats["Coefficient of efficiency:"] = gof(
-                    stats="lm_index", sim_col=series_sim, obs_col=series_obs
-                )[0][
-                    1
-                ]  # need to fix
-            elif exponent == 1:
-                stats["Coefficient of efficiency:"] = gof(
-                    stats="lm_index", sim_col=series_sim, obs_col=series_obs
-                )[0][1]
+        if self._normalize_bools(coefficient_of_efficiency) and exponent in [2, 1]:
+            stats["Coefficient of efficiency:"] = gof(
+                stats="lm_index", sim_col=series_sim, obs_col=series_obs
+            )[0][1]
         if self._normalize_bools(index_of_agreement):
             if exponent == 2:
                 stats["Index of agreement:"] = gof(
@@ -1935,6 +2130,7 @@ class Tables:
         series_name: str,
         new_series_name: str,
     ):
+        """Calculate the difference between two time series."""
         series = self._get_series(series_name)
         series = series.diff()
         self._join(new_series_name, series=series)
@@ -1947,6 +2143,7 @@ class Tables:
         lag_increment: int,
         fill_value,
     ):
+        """Displace a time series by a given lag."""
         series = self._get_series(series_name)
         series = series.shift(lag_increment)
         series[-lag_increment:] = fill_value  # Verify what TSPROC does.
@@ -1958,6 +2155,7 @@ class Tables:
         new_series_name: str,
         equation,
     ):
+        """Create a new time series from an equation."""
         if isinstance(equation, list):
             equation = "".join(equation)
         equation = equation.strip().lower()
@@ -1987,6 +2185,7 @@ class Tables:
         time_2: Optional[str] = None,
         **minmaxmeans,
     ):
+        """Calculate statistics for a time series."""
         log = self._normalize_bools(log)
         series = self._prepare_series(
             series_name,
@@ -2013,8 +2212,7 @@ class Tables:
             for key, value in minmaxmeans.items()
             if value
         }
-        for mmm in minmaxmeans:
-            rows.append(mmm)
+        rows.extend(iter(minmaxmeans))
         s_table = pd.DataFrame([pd.NA] * len(rows), index=rows)
 
         if self._normalize_bools(sum):
@@ -2061,6 +2259,7 @@ class Tables:
         }
 
     def settings(self, date_format="%Y-%m-%d"):
+        """Set the date format for the output."""
         if date_format == "dd/mm/yyyy":
             date_format = "%d/%m/%Y"
         if date_format == "mm/dd/yyyy":
@@ -2074,6 +2273,7 @@ class Tables:
         v_table_name,
         time_abscissa,
     ):
+        """Create a new time series from a v_table."""
         v_table = self._get_v_table(v_table_name)
         series = v_table  # FIX!
         self._join(new_series_name, series=series)
@@ -2088,6 +2288,7 @@ class Tables:
         automatic_dates=None,
         factor=1,
     ):
+        """Calculate the volume of a time series."""
         if ((date_file is None) and (automatic_dates is None)) or (
             (date_file is not None) and (automatic_dates is not None)
         ):
@@ -2113,12 +2314,12 @@ class Tables:
         if date_file:
             start_end = []
             with open(date_file, encoding="ascii") as fpi:
-                for line in fpi.readlines():
+                for line in fpi:
                     words = line.strip().split()
                     start_end.append(
                         [
-                            self._normalize_dates(words[0], words[1]),
-                            self._normalize_dates(words[2], words[3]),
+                            self._normalize_datetimes(words[0], words[1]),
+                            self._normalize_datetimes(words[2], words[3]),
                         ]
                     )
 
@@ -2159,27 +2360,29 @@ class Tables:
         hysep_type: str,
         time_interval: int,
         area: float = 1.0,
-        date_1: str = None,
-        time_1: str = None,
-        date_2: str = None,
-        time_2: str = None,
+        date_1: Optional[str] = None,
+        time_1: Optional[str] = None,
+        date_2: Optional[str] = None,
+        time_2: Optional[str] = None,
     ):
-        ts = pd.DataFrame(self._get_series(series_name))
-        ts = tsutils.common_kwds(
-            ts,
-            start_date=self._normalize_dates(date_1, time_1),
-            end_date=self._normalize_dates(date_2, time_2),
+        """Perform a USGS HYSEP baseflow separation."""
+        series = self._prepare_series(
+            series_name,
+            date_1=date_1,
+            time_1=time_1,
+            date_2=date_2,
+            time_2=time_2,
         )
         if time_interval is None:
             time_interval = 5
         if hysep_type.lower() == "fixed":
-            ts = hydrotoolbox.baseflow_sep.usgs_hysep_fixed(ts, time_interval)
+            series = hydrotoolbox.baseflow_sep.usgs_hysep_fixed(series, time_interval)
         elif hysep_type.lower() == "local":
-            ts = hydrotoolbox.baseflow_sep.usgs_hysep_local(ts, time_interval)
+            series = hydrotoolbox.baseflow_sep.usgs_hysep_local(series, time_interval)
         elif hysep_type.lower() == "sliding":
-            ts = hydrotoolbox.baseflow_sep.usgs_hysep_slide(ts, time_interval)
+            series = hydrotoolbox.baseflow_sep.usgs_hysep_slide(series, time_interval)
 
-        self._join(new_series_name, series=ts)
+        self._join(new_series_name, series=series)
 
     @validate_call
     def write_pest_files(
@@ -2216,6 +2419,7 @@ class Tables:
         model_command_line=None,
         **kwds,
     ):
+        """Write PEST control file and instruction file."""
         pst = pyemu.Pst.from_io_files(
             template_file, model_input_file, new_instruction_file, self.ofile
         )
@@ -2326,6 +2530,7 @@ def run(infile, running_context=None):
                     "get_mul_series_ssf",
                     "get_mul_series_statvar",
                     "exceedance_time",
+                    "exceedence_time",
                     "hydrologic_indices",
                     "list_output",
                     "write_pest_files",
@@ -2339,6 +2544,7 @@ def run(infile, running_context=None):
                     "get_mul_series_ssf",
                     "get_mul_series_statvar",
                     "exceedance_time",
+                    "exceedence_time",
                     "hydrologic_indices",
                     "list_output",
                     "write_pest_files",
@@ -2349,20 +2555,22 @@ def run(infile, running_context=None):
                 # preceded by a LIST_OUTPUT block.
                 if line[1].lower() == "list_output":
                     prev_list_output_index = index
-                if line[1].lower() == "write_pest_files":
-                    if prev_list_output_index != index - 1:
-                        raise ValueError(
-                            tsutils.error_wrapper(
-                                """
-                                The "WRITE_PEST_FILES" block must be
-                                immediately preceded by a "LIST_OUTPUT" block.
-                                The "LIST_OUTPUT" block should contain all the
-                                simulated data to be used in the objective
-                                function in the same order as listed in the
-                                "WRITE_PEST_FILES" block.
-                                """
-                            )
+                if (
+                    line[1].lower() == "write_pest_files"
+                    and prev_list_output_index != index - 1
+                ):
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            """
+                            The "WRITE_PEST_FILES" block must be
+                            immediately preceded by a "LIST_OUTPUT" block.
+                            The "LIST_OUTPUT" block should contain all the
+                            simulated data to be used in the objective
+                            function in the same order as listed in the
+                            "WRITE_PEST_FILES" block.
+                            """
                         )
+                    )
 
                 if len(line) > maxl:
                     maxl = len(line)
@@ -2391,8 +2599,7 @@ def run(infile, running_context=None):
                             ordered[line[0]] = [line[1]]
                     else:
                         ngroup.append(line)
-                for key, value in ordered.items():
-                    ngroup.append([key] + value)
+                ngroup.extend([key] + value for key, value in ordered.items())
                 blocks.append(ngroup)
                 lnumbers.append(lnumber)
 
@@ -2435,7 +2642,7 @@ def run(infile, running_context=None):
         kwds = {
             key.lower(): val for key, val in data.funcs[data.block_name]["kwds"].items()
         }
-        if not all(elem in keys for elem in args):
+        if any(elem not in keys for elem in args):
             raise ValueError(
                 tsutils.error_wrapper(
                     f"""
@@ -2457,12 +2664,9 @@ def run(infile, running_context=None):
             )
         if data.block_name == "settings":
             continue
-        parameters = {}
-        for allv in block:
-            if len(allv) == 2:
-                parameters[allv[0]] = allv[1]
-            else:
-                parameters[allv[0]] = allv[1:]
+        parameters = {
+            allv[0]: allv[1] if len(allv) == 2 else allv[1:] for allv in block
+        }
         kwds.update(parameters)
         parameters = {key.lower(): val for key, val in kwds.items() if val is not None}
         del parameters["start"]
@@ -2471,6 +2675,9 @@ def run(infile, running_context=None):
             print(
                 f"PROCESSING: {data.block_name} @ line number {data.line_number} with arguments {parameters}"
             )
+        with suppress(KeyError):
+            parameters["exceedance_time_units"] = parameters["exceedence_time_units"]
+            del parameters["exceedence_time_units"]
         data.funcs[data.block_name]["f"](**parameters)
     if os.path.exists("debug_tsblender"):
         print("\nTIME SERIES")

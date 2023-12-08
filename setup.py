@@ -17,4 +17,4 @@ if sys.argv[-1] == "publish":
     )
     sys.exit()
 
-setup()
+setup(version=version)
