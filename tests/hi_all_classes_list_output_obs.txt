@@ -3654,6 +3654,7 @@
  Oq6500            09/29/2000   00:00:00 36
  Oq6500            09/30/2000   00:00:00 36
 
+
  G_TABLE "BEC_hyd_indx" ---->
    Hydrologic Index:description (Olden & Poff, 2003) Oq6500 1954-02-01 to 2007-12-31                      Value
    MA16: Mean monthly flow: May:                                                               46.5548387096774

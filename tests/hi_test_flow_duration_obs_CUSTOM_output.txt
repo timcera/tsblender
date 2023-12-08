@@ -3654,6 +3654,7 @@
  Oq6500            09/29/2000   00:00:00 36
  Oq6500            09/30/2000   00:00:00 36
 
+
  G_TABLE "flow_dur_obs" ---->
    Flow-duration curve for series "Oq6500" (1954-02-01 to 2007-12-31)   Value
    99.00% of flows exceed:                                                          20

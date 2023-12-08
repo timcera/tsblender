@@ -1,4 +1,5 @@
 
+
  E_TABLE "ESq6500" ---->
    Flow           Time delay (day)    Time above (day)   Fraction of time above threshold
    15               0.0000             3562.18358046             0.9754062378

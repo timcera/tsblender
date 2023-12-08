@@ -1,18 +1,22 @@
 
- E_TABLE "esq6500" ---->
+
+ E_TABLE "ESq6500" ---->
    Flow           Time delay (days)    Time above (days)   Fraction of time above threshold
-   15.00000          0.000000            3562.184              0.9756734
-   18.00000          0.000000            3430.528              0.9396132
-   20.00000          0.000000            3319.842              0.9092966
-   24.00000          0.000000            2937.377              0.8045404
-   31.00000          0.000000            2203.905              0.6036441
-   40.00000          0.000000            1447.988              0.3966003
-   52.00000          0.000000            835.2217              0.2287652
-   65.00000          0.000000            476.7367              0.1305770
-   130.1000          0.000000            104.3426              2.8579181E-02
+   15               0.0000             3562.18358046             0.9754062378
+   18               0.0000             3430.52818581             0.9393560202
+   20               0.0000             3319.84184201             0.9090476019
+   24               0.0000             2937.37728678             0.8043201771
+   31               0.0000             2203.90403386             0.6034786511
+   40               0.0000             1447.98748915             0.3964916454
+   52               0.0000             835.221403281             0.2287024653
+   65               0.0000             476.736759407             0.1305412813
+   130.1            0.0000             104.342614683            0.02857136218
 
  G_TABLE "sim_hyd_indx" ---->
-   Hydrologic Index and description (Olden and Poff, 2003)                          Value
-   ML1: Mean minimum monthly flow, January                                         25.479
-   ML13: CV of minimum monthly flows                                               40.098
-   ML15: Mean minimum annual flow / mean annual flow                                0.423
+   Hydrologic Index:description (Olden & Poff, 2003) Sq6500 1954-02-01 to 2007-12-31                      Value
+   MA16: Mean monthly flow: May:                                                               56.8116104419355
+   MA22: Mean monthly flow: November:                                                          39.3972685933333
+   MA34: CV of monthly flow: November:                                                         58.0422348220043
+   ML1: Mean minimum monthly flow: January:                                                           25.478716
+   ML13: CV of minimum monthly flows:                                                          40.0983553960609
+   ML15: Mean minimum annual flow/mean annual flow:                                           0.422587684065136
