@@ -14,6 +14,7 @@ description = "Drop-in replacement for TSPROC that is a utility for inverse mode
 dependencies = [
     "cltoolbox >= 1.0.0",
     "flopy",
+    "fortranformat",
     "hspf_reader",
     "hydrotoolbox >= 2.0.0",
     "numpy",

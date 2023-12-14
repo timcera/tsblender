@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 import pyemu
 from dateutil.parser import parse
+from fortranformat import FortranRecordWriter
 from hydrotoolbox import hydrotoolbox
 from hydrotoolbox.hydrotoolbox import baseflow_sep
 from numpy import abs
@@ -600,7 +601,7 @@ class Tables:
                     "DATE_2": None,
                     "TIME_2": None,
                 },
-                "f": self.series_statistic,
+                "f": self.series_statistics,
             },
             "USGS_HYSEP": {
                 "args": [
@@ -796,11 +797,12 @@ class Tables:
                 )
             )
 
+    @validate_call
     def _prepare_series(
         self,
         series_name,
-        log=False,
-        power=1,
+        log: bool = False,
+        power: int = 1,
         date_1=None,
         time_1=None,
         date_2=None,
@@ -838,7 +840,9 @@ class Tables:
             end_date=self._normalize_datetimes(date_2, time_2),
         )
 
-        series = series.iloc[:, 0]
+        series = series.loc[
+            series.first_valid_index() : series.last_valid_index(), series.columns[0]
+        ]
         return series
 
     @validate_call
@@ -1632,7 +1636,6 @@ class Tables:
         e_table_name=None,
         g_table_name=None,
         _ins_file="",
-        separate_files=False,
     ):
         """
         List the output in the following order:
@@ -1670,6 +1673,17 @@ class Tables:
 
         self.ofile = _ins_file or file
 
+        fortran_format = {
+            "table": FortranRecordWriter(r"t5, a, t55, 1PG14.7, /"),
+            "series_long": FortranRecordWriter(
+                r"1x, a, t20, a10, 3x, a8, 3x, g16.9, /"
+            ),
+            "series_short": FortranRecordWriter(r"4x, g16.9, /"),
+            "v_table": FortranRecordWriter(
+                r"t5, 'From ', a10, ' ', a8, ' to ', a10, ' ', a8, '  volume = ', G18.12, /"
+            ),
+        }
+
         # Time series first
         with open(self.ofile, "w", encoding="utf-8") as fp:
             outp = "pif $\n1l\n" if _ins_file else ""
@@ -1688,14 +1702,24 @@ class Tables:
                         outp = (
                             f"l1   [{sern}{rowno+1}]\n"
                             if _ins_file
-                            else f" {sern}{date:>{28-len(sern)}}   {time} {value:<13.13g}\n"
+                            else fortran_format["series_long"].write(
+                                [sern, date, time, value]
+                            )
                         )
                     elif series_format == "short":
                         outp = (
-                            "1l    [{sern}{rowno+1}]\n" if _ins_file else f" {value}\n"
+                            f"1l    [{sern}{rowno+1}]\n"
+                            if _ins_file
+                            else fortran_format["series_short"].write([value])
                         )
-                    fp.write(outp.rstrip() + "\n")
-            outp = "11\n" if _ins_file else "\n"
+                    elif series_format == "ssf":
+                        outp = (
+                            "1l    [{sern}{rowno+1}]\n"
+                            if _ins_file
+                            else fortran_format["series_ssf"].write([sern, value])
+                        )
+                    fp.write(outp)
+            outp = "11\n" if _ins_file else ""
             fp.write(outp)
 
             for s_tab in s_table_name:
@@ -1713,11 +1737,11 @@ class Tables:
                     if _ins_file
                     else f"""
  S_TABLE "{s_tab}" ---->
-     Series for which data calculated:               {source_name}
-     Starting date for data accumulation:            {start_date}
-     Ending date for data accumulation               {end_date}
-     Logarithmic transformation of series?           {log_transformed}
-     Exponent in power transformation:               {exponent}
+     Series for which data calculated:                 {source_name}
+     Starting date for data accumulation:              {start_date}
+     Ending date for data accumulation                 {end_date}
+     Logarithmic transformation of series?             {log_transformed}
+     Exponent in power transformation:                 {exponent}
 """
                 )
                 fp.write(outp)
@@ -1725,7 +1749,7 @@ class Tables:
                     outp = (
                         "1l {s_tab}  \n"
                         if _ins_file
-                        else f"     {s_tab}{index:>{28-len(s_tab)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
+                        else fortran_format["table"].write([index, value])
                     )
                     fp.write(outp)
 
@@ -1737,16 +1761,24 @@ class Tables:
                 start_date = self.c_table_metadata[c_TAB]["start_date"].strftime(
                     "%Y-%m-%d"
                 )
+                start_time = self.c_table_metadata[c_TAB]["start_date"].strftime(
+                    "%H:%M:%S"
+                )
                 end_date = self.c_table_metadata[c_TAB]["end_date"].strftime("%Y-%m-%d")
+                end_time = self.c_table_metadata[c_TAB]["end_date"].strftime("%H:%M:%S")
+                num_terms = self.c_table_metadata[c_TAB]["num_terms"]
                 outp = (
                     "FIXME"
                     if _ins_file
                     else f"""
  C_TABLE "{c_tab}" ---->
-     Observation time series name:                    {obs_name}
-     Simulation time series name:                     {sim_name}
-     Beginning time of series comparison:             {start_date}
-     Finishing time of series comparison:             {end_date}
+    Observation time series name:                     "{obs_name.lower()}"
+    Simulation time series name:                      "{sim_name.lower()}"
+    Beginning date of series comparison:              {start_date}
+    Beginning time of series comparison:              {start_time}
+    Finishing date of series comparison:              {end_date}
+    Finishing time of series comparison:              {end_time}
+    Number of series terms in this interval:          {num_terms}
 """
                 )
                 fp.write(outp)
@@ -1754,7 +1786,7 @@ class Tables:
                     outp = (
                         "FIXME"
                         if _ins_file
-                        else f"     {c_tab}{index:>{28-len(c_tab)}}   {index.strftime('%H:%M:%S')} {value:<13.13g}\n"
+                        else fortran_format["table"].write([index, value])
                     )
                     fp.write(outp)
 
@@ -1773,7 +1805,15 @@ class Tables:
                     outp = (
                         "FIXME"
                         if _ins_file
-                        else f"    From {index[0].strftime(self.date_format)} {index[0].strftime('%H:%M:%S')} to {index[1].strftime(self.date_format)} {index[1].strftime('%H:%M:%S')}  volume = {value:0<13.13g}\n"
+                        else fortran_format["v_table"].write(
+                            [
+                                index[0].strftime(self.date_format),
+                                index[0].strftime("%H:%M:%S"),
+                                index[1].strftime(self.date_format),
+                                index[1].strftime("%H:%M:%S"),
+                                value,
+                            ]
+                        )
                     )
                     fp.write(outp)
 
@@ -1789,15 +1829,25 @@ class Tables:
                     if _ins_file
                     else f"""
  E_TABLE "{e_tab}" ---->
-   Flow           Time delay ({units})    Time {direction} ({units})   Fraction of time {direction} threshold
 """
+                )
+                fp.write(outp)
+                fformat = FortranRecordWriter(
+                    "t4, 'Flow', t19, 'Time delay (', a, ')', t40, 'Time ', a, ' (', a, ')', t60, 'Fraction of time ', a, ' threshold', /"
+                )
+                outp = (
+                    "4l"
+                    if _ins_file
+                    else fformat.write([units, direction, units, direction])
                 )
                 fp.write(outp)
                 for index, value in e_TAB.dropna().items():
                     outp = (
                         "FIXME"
                         if _ins_file
-                        else f"   {index[0]:<7g}          {index[1]:<7.4f}{value:>25.12g}{et_tot[index]:>25.10g}\n"
+                        else FortranRecordWriter(
+                            "t2, g14.7, t20, g14.7, t40, g14.7, t63, g14.7, /"
+                        ).write([index[0], index[1], value, et_tot[index]])
                     )
                     fp.write(outp)
 
@@ -1807,6 +1857,11 @@ class Tables:
                 start_date = self.g_table_metadata[g_tab.upper()]["start_date"]
                 end_date = self.g_table_metadata[g_tab.upper()]["end_date"]
 
+                outp = f"""
+ G_TABLE "{g_tab}" ---->
+"""
+                fp.write(outp)
+
                 if kind == "flow_duration":
                     #  G_TABLE "mduration" ---->
                     #    Flow-duration curve for series "mflow" (11/08/8672 to 11/07/8693)                     Value
@@ -1814,10 +1869,15 @@ class Tables:
                     outp = (
                         "FIXME"
                         if _ins_file
-                        else f"""
- G_TABLE "{g_tab}" ---->
-   Flow-duration curve for series "{src}" ({start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")})   Value
-"""
+                        else FortranRecordWriter(
+                            "t4, 'Flow duration curve for ', a, ' ', a, ':', a, t85, 'Value', /"
+                        ).write(
+                            [
+                                src,
+                                start_date.strftime("%m/%d/%Y"),
+                                end_date.strftime("%m/%d/%Y"),
+                            ]
+                        )
                     )
                     fp.write(outp)
                     g_table = self.g_table[g_tab.upper()].dropna()
@@ -1836,10 +1896,15 @@ class Tables:
                     outp = (
                         "FIXME"
                         if _ins_file
-                        else f"""
- G_TABLE "{g_tab}" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) {src} {start_date.strftime("%Y-%m-%d")} to {end_date.strftime("%Y-%m-%d")} {"Value":>{32-len(src)}}
-"""
+                        else FortranRecordWriter(
+                            "t4, 'Hydrologic index for ', a, ' ', a, ':', a, t85, 'Value', /"
+                        ).write(
+                            [
+                                src,
+                                start_date.strftime("%m/%d/%Y"),
+                                end_date.strftime("%m/%d/%Y"),
+                            ]
+                        )
                     )
                     fp.write(outp)
 
@@ -1851,7 +1916,9 @@ class Tables:
                         outp = (
                             "FIXME"
                             if _ins_file
-                            else f"   {index}:{value:>{107-len(index)}.15g}\n"
+                            else FortranRecordWriter("t4, a, t82, g14.7, /").write(
+                                [index, value]
+                            )
                         )
                         fp.write(outp)
 
@@ -2022,15 +2089,15 @@ class Tables:
         series_name_sim: str,
         series_name_obs: str,
         new_c_table_name: str,
-        bias=False,
-        standard_error=False,
-        relative_bias=False,
-        relative_standard_error=False,
-        nash_sutcliffe=False,
-        coefficient_of_efficiency=False,
-        index_of_agreement=False,
-        volumetric_efficiency=False,
-        exponent=2,
+        bias: bool = False,
+        standard_error: bool = False,
+        relative_bias: bool = False,
+        relative_standard_error: bool = False,
+        nash_sutcliffe: bool = False,
+        coefficient_of_efficiency: bool = False,
+        index_of_agreement: bool = False,
+        volumetric_efficiency: bool = False,
+        exponent: int = 2,
         series_name_base: str = "",
         date_1: Optional[str] = None,
         time_1: Optional[str] = None,
@@ -2122,6 +2189,7 @@ class Tables:
             "obs_name": series_name_obs,
             "start_date": series_sim.index[0],
             "end_date": series_sim.index[-1],
+            "num_terms": min(len(series_sim), len(series_obs)),
         }
 
     @validate_call
@@ -2166,7 +2234,7 @@ class Tables:
         self._join(new_series_name, series=series)
 
     @validate_call
-    def series_statistic(
+    def series_statistics(
         self,
         series_name: str,
         new_s_table_name: str,

@@ -30,11 +30,27 @@
 
 tsblender - Quick Guide
 =======================
-The tsblender is a pure python re-write of TSPROC (Time Series PROCessor) from
-the USGS and John Doherty.  When finished it will be a superset of TSPROC
-functionality and a more robust and flexible tool for time series analysis.
+The tsblender is a pure python re-write of the Time Series PROCessor (TSPROC).
+When finished it will be a superset of TSPROC functionality and a more robust
+and flexible tool for time series analysis.
 
 This is not complete and is still under development.
+
+TSPROC
+------
+TSPROC is a Time Series PROCessor that uses a configuration file to describe
+the tasks the data scientist or modeler wants to accomplish.
+
+Initial TSPROC development was by John Doherty, Watermark Numerical Computing.
+It was part of the Surface Water Utilities package that was created to support
+optimization of model parameters using the Parameter ESTimation (PEST) suite of
+programs.  PEST was also developed by John Doherty.
+
+TSPROC is written in Fortran 90 and "C" and is available from the USGS at:
+
+:Main site: https://wi.water.usgs.gov/models/tsproc/
+:Documentation: https://pubs.usgs.gov/tm/tm7c7/
+:Development: https://github.com/smwesten-usgs/tsproc
 
 Requirements
 ------------
@@ -68,6 +84,22 @@ Progress
 ========
 This version of tsblender is INCOMPLETE.
 
+The following blocks are only implemented in 'tsblender' and not in 'tsproc'.
+
+     +----------------------------+--------+-----------+
+     | TSPROC Block Name          | tsproc | tsblender |
+     +============================+========+===========+
+     | GET_SERIES_GSFLOW_GAGE     |        | X         |
+     +----------------------------+--------+-----------+
+     | GET_SERIES_CSV             |        | X         |
+     +----------------------------+--------+-----------+
+     | GET_SERIES_HSPFBIN         |        | X         |
+     +----------------------------+--------+-----------+
+     | GET_SERIES_XLSX            |        | X         |
+     +----------------------------+--------+-----------+
+
+The following table shows the progress of the implementation of the TSPROC
+blocks in 'tsblender'.
      +----------------------------+--------+-----------+
      | TSPROC Block Name          | tsproc | tsblender |
      +============================+========+===========+
@@ -79,33 +111,17 @@ This version of tsblender is INCOMPLETE.
      +----------------------------+--------+-----------+
      | FLOW_DURATION              | X      | X         |
      +----------------------------+--------+-----------+
-     | GET_MUL_SERIES_GSFLOW_GAGE | X      |           |
-     +----------------------------+--------+-----------+
-     | GET_SERIES_GSFLOW_GAGE     |        | X         |
-     +----------------------------+--------+-----------+
-     | GET_MUL_SERIES_SSF         | X      |           |
-     +----------------------------+--------+-----------+
      | GET_SERIES_SSF             | X      | X         |
-     +----------------------------+--------+-----------+
-     | GET_MUL_SERIES_STATVAR     | X      |           |
      +----------------------------+--------+-----------+
      | GET_SERIES_STATVAR         | X      | X         |
      +----------------------------+--------+-----------+
-     | GET_MUL_SERIES_PLOTGEN     | X      |           |
-     +----------------------------+--------+-----------+
      | GET_SERIES_PLOTGEN         | X      | X         |
-     +----------------------------+--------+-----------+
-     | GET_SERIES_CSV             |        | X         |
-     +----------------------------+--------+-----------+
-     | GET_SERIES_HSPFBIN         |        | X         |
      +----------------------------+--------+-----------+
      | GET_SERIES_TETRAD          | X      |           |
      +----------------------------+--------+-----------+
      | GET_SERIES_UFORE_HYDRO     | X      | X         |
      +----------------------------+--------+-----------+
      | GET_SERIES_WDM             | X      | X         |
-     +----------------------------+--------+-----------+
-     | GET_SERIES_XLSX            |        | X         |
      +----------------------------+--------+-----------+
      | HYDRO_EVENTS               | X      | X         |
      +----------------------------+--------+-----------+
@@ -148,4 +164,19 @@ This version of tsblender is INCOMPLETE.
      | VOLUME_CALCULATION         | X      | X         |
      +----------------------------+--------+-----------+
      | WRITE_PEST_FILES           | X      |           |
+     +----------------------------+--------+-----------+
+
+The GET_MUL_SERIES_* blocks are deprecated in 'tsblender' and should be
+replaced by rolled up versions of the GET_SERIES_* blocks.
+
+     +----------------------------+--------+-----------+
+     | TSPROC Block Name          | tsproc | tsblender |
+     +============================+========+===========+
+     | GET_MUL_SERIES_GSFLOW_GAGE | X      | X         |
+     +----------------------------+--------+-----------+
+     | GET_MUL_SERIES_PLOTGEN     | X      | X         |
+     +----------------------------+--------+-----------+
+     | GET_MUL_SERIES_SSF         | X      | X         |
+     +----------------------------+--------+-----------+
+     | GET_MUL_SERIES_STATVAR     | X      | X         |
      +----------------------------+--------+-----------+
