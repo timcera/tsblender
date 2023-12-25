@@ -1,0 +1,676 @@
+
+Thu Dec 21 2023 00:13: processing information contained in TSPROC input file tsproc.inp....
+
+ Processing SETTINGS block....
+    context all
+    DATE_FORMAT mm/dd/yyyy
+    Processing of SETTINGS block complete.
+
+ Processing GET_MUL_SERIES_STATVAR block....
+    context all
+    FILE ../data/statvar.dat
+    VARIABLE_NAME sub_cfs
+    LOCATION_ID 1
+    NEW_SERIES_NAME sq6540i
+    VARIABLE_NAME sub_cfs
+    LOCATION_ID 2
+    NEW_SERIES_NAME sq6500i
+    VARIABLE_NAME sub_cfs
+    LOCATION_ID 3
+    NEW_SERIES_NAME sq65145i
+    VARIABLE_NAME sub_cfs
+    LOCATION_ID 4
+    NEW_SERIES_NAME sqa6491i
+    VARIABLE_NAME sub_cfs
+    LOCATION_ID 5
+    NEW_SERIES_NAME sq6470i
+    VARIABLE_NAME sub_cfs
+    LOCATION_ID 6
+    NEW_SERIES_NAME sq7948i
+    VARIABLE_NAME pk_depth
+    LOCATION_ID 289
+    NEW_SERIES_NAME sstruaxi
+    VARIABLE_NAME orad
+    LOCATION_ID 1
+    NEW_SERIES_NAME soradi
+    VARIABLE_NAME basin_potet
+    LOCATION_ID 1
+    NEW_SERIES_NAME settruaxi
+    Reading STATVAR file ../data/statvar.dat....
+
+'10'
+
+'sub_cfs 1'
+
+'sub_cfs 2'
+
+'sub_cfs 3'
+
+'sub_cfs 4'
+
+'sub_cfs 5'
+
+'sub_cfs 6'
+
+'sub_cfs 7'
+
+'pk_depth 289'
+
+'orad 1'
+
+'basin_potet 1'
+    Series "sq6540i" successfully imported from file ../data/statvar.dat
+    Series "sq6500i" successfully imported from file ../data/statvar.dat
+    Series "sq65145i" successfully imported from file ../data/statvar.dat
+    Series "sqa6491i" successfully imported from file ../data/statvar.dat
+    Series "sq6470i" successfully imported from file ../data/statvar.dat
+    Series "sq7948i" successfully imported from file ../data/statvar.dat
+    Series "sstruaxi" successfully imported from file ../data/statvar.dat
+    Series "soradi" successfully imported from file ../data/statvar.dat
+    Series "settruaxi" successfully imported from file ../data/statvar.dat
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/DANE_CO_REGIONAL_AP_PENMAN_FAO56_PET.ssf
+    SITE truax_et
+    NEW_SERIES_NAME oettruaxi
+    Reading site sample file ../data/DANE_CO_REGIONAL_AP_PENMAN_FAO56_PET.ssf....
+    Series "oettruaxi" successfully imported from file ../data/DANE_CO_REGIONAL_AP_PENMAN_FAO56_PET.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oettruaxi
+    NEW_SERIES_NAME oettruaxr
+    DATE_1 01/01/1985
+    DATE_2 12/30/2007
+    Series "oettruaxr" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oettruaxr
+    NEW_SERIES_NAME oettruax
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY -1.000D-8
+    Series "oettruax" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME settruaxi
+    TB_SERIES_NAME oettruax
+    NEW_SERIES_NAME settruax
+    New series "settruax" successfully calculated.
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/Q_BEC_BE_6500.ssf
+    SITE 05406500
+    NEW_SERIES_NAME oq6500i
+    Reading site sample file ../data/Q_BEC_BE_6500.ssf....
+    Series "oq6500i" successfully imported from file ../data/Q_BEC_BE_6500.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oq6500i
+    NEW_SERIES_NAME oq6500r
+    DATE_1 01/03/1985
+    DATE_2 12/30/2007
+    Series "oq6500r" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oq6500r
+    NEW_SERIES_NAME oq6500
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "oq6500" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oq6500r
+    NEW_SERIES_NAME oq6500t
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY 45.000000
+    Series "oq6500t" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sq6500i
+    TB_SERIES_NAME oq6500
+    NEW_SERIES_NAME sq6500
+    New series "sq6500" successfully calculated.
+
+ Processing SERIES_EQUATION block....
+    context all
+    NEW_SERIES_NAME sq6500l
+    EQUATION "log( sq6500 + 0.001 )"
+    Series "sq6500l" successfully calculated using series equation.
+
+ Processing SERIES_EQUATION block....
+    context all
+    NEW_SERIES_NAME oq6500l
+    EQUATION "log( oq6500 + 0.001 )"
+    Series "oq6500l" successfully calculated using series equation.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sq6500i
+    TB_SERIES_NAME oq6500t
+    NEW_SERIES_NAME sq6500t
+    New series "sq6500t" successfully calculated.
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME oq6500
+    NEW_E_TABLE_NAME eoq6500
+    FLOW_TIME_UNITS days
+    FLOW 15
+    FLOW 18
+    FLOW 20
+    FLOW 24
+    FLOW 31
+    FLOW 40
+    FLOW 52
+    FLOW 65
+    FLOW 130.1
+    Exceedance times calculated and stored in e_table "eoq6500".
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME sq6500
+    NEW_E_TABLE_NAME esq6500
+    FLOW_TIME_UNITS days
+    FLOW 15
+    FLOW 18
+    FLOW 20
+    FLOW 24
+    FLOW 31
+    FLOW 40
+    FLOW 52
+    FLOW 65
+    FLOW 130.1
+    Exceedance times calculated and stored in e_table "esq6500".
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/Q_BreweryCk_6470.ssf
+    SITE 05406470
+    NEW_SERIES_NAME oq6470i
+    Reading site sample file ../data/Q_BreweryCk_6470.ssf....
+    Series "oq6470i" successfully imported from file ../data/Q_BreweryCk_6470.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oq6470i
+    NEW_SERIES_NAME oq6470r
+    DATE_1 01/03/1985
+    DATE_2 09/30/2005
+    Series "oq6470r" successfully calculated.
+
+ Processing SERIES_EQUATION block....
+    context all
+    NEW_SERIES_NAME oq6470
+    EQUATION "oq6470r"
+    Series "oq6470" successfully calculated using series equation.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sq6470i
+    TB_SERIES_NAME oq6470
+    NEW_SERIES_NAME sq6470
+    New series "sq6470" successfully calculated.
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME oq6470
+    NEW_E_TABLE_NAME eoq6470
+    FLOW_TIME_UNITS days
+    FLOW 0
+    FLOW 0
+    FLOW 0
+    FLOW 0
+    FLOW 1.75
+    FLOW 2.75
+    FLOW 4.04
+    FLOW 6
+    FLOW 26.67
+    Exceedance times calculated and stored in e_table "eoq6470".
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME sq6470
+    NEW_E_TABLE_NAME esq6470
+    FLOW_TIME_UNITS days
+    FLOW 0
+    FLOW 0
+    FLOW 0
+    FLOW 0
+    FLOW 1.75
+    FLOW 2.75
+    FLOW 4.04
+    FLOW 6
+    FLOW 26.67
+    Exceedance times calculated and stored in e_table "esq6470".
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/Q_GarfootCk_6491.ssf
+    SITE 05406491
+    NEW_SERIES_NAME oqa6491i
+    Reading site sample file ../data/Q_GarfootCk_6491.ssf....
+    Series "oqa6491i" successfully imported from file ../data/Q_GarfootCk_6491.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oqa6491i
+    NEW_SERIES_NAME oqa6491r
+    DATE_1 09/09/1989
+    DATE_2 05/31/1994
+    Series "oqa6491r" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oqa6491r
+    NEW_SERIES_NAME oqa6491
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "oqa6491" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sqa6491i
+    TB_SERIES_NAME oqa6491
+    NEW_SERIES_NAME sqa6491
+    New series "sqa6491" successfully calculated.
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME oqa6491
+    NEW_E_TABLE_NAME eoqa6491
+    FLOW_TIME_UNITS days
+    FLOW 1.9
+    FLOW 2.4
+    FLOW 2.7
+    FLOW 3.6
+    FLOW 4.7
+    FLOW 5.8
+    FLOW 7.4
+    FLOW 9.3
+    FLOW 23
+    Exceedance times calculated and stored in e_table "eoqa6491".
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME sqa6491
+    NEW_E_TABLE_NAME esqa6491
+    FLOW_TIME_UNITS days
+    FLOW 1.9
+    FLOW 2.4
+    FLOW 2.7
+    FLOW 3.6
+    FLOW 4.7
+    FLOW 5.8
+    FLOW 7.4
+    FLOW 9.3
+    FLOW 23
+    Exceedance times calculated and stored in e_table "esqa6491".
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/Q_GarfootCk_6491.ssf
+    SITE 05406491
+    NEW_SERIES_NAME oqb6491i
+    Reading site sample file ../data/Q_GarfootCk_6491.ssf....
+    Series "oqb6491i" successfully imported from file ../data/Q_GarfootCk_6491.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oqb6491i
+    NEW_SERIES_NAME oqb6491r
+    DATE_1 08/01/1994
+    DATE_2 10/14/1998
+    Series "oqb6491r" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oqb6491r
+    NEW_SERIES_NAME oqb6491
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "oqb6491" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sqa6491i
+    TB_SERIES_NAME oqb6491
+    NEW_SERIES_NAME sqb6491
+    New series "sqb6491" successfully calculated.
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME oqb6491
+    NEW_E_TABLE_NAME eoqb6491
+    FLOW_TIME_UNITS days
+    FLOW 1.9
+    FLOW 2.4
+    FLOW 2.7
+    FLOW 3.6
+    FLOW 4.7
+    FLOW 5.8
+    FLOW 7.4
+    FLOW 9.3
+    FLOW 23
+    Exceedance times calculated and stored in e_table "eoqb6491".
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME sqb6491
+    NEW_E_TABLE_NAME esqb6491
+    FLOW_TIME_UNITS days
+    FLOW 1.9
+    FLOW 2.4
+    FLOW 2.7
+    FLOW 3.6
+    FLOW 4.7
+    FLOW 5.8
+    FLOW 7.4
+    FLOW 9.3
+    FLOW 23
+    Exceedance times calculated and stored in e_table "esqb6491".
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/Q_BEC_Mazo_6540.ssf
+    SITE 05406540
+    NEW_SERIES_NAME oq6540i
+    Reading site sample file ../data/Q_BEC_Mazo_6540.ssf....
+    Series "oq6540i" successfully imported from file ../data/Q_BEC_Mazo_6540.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oq6540i
+    NEW_SERIES_NAME oq6540r
+    DATE_1 11/11/2004
+    DATE_2 09/30/2005
+    Series "oq6540r" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oq6540r
+    NEW_SERIES_NAME oq6540
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "oq6540" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sq6540i
+    TB_SERIES_NAME oq6540
+    NEW_SERIES_NAME sq6540
+    New series "sq6540" successfully calculated.
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME oq6540
+    NEW_E_TABLE_NAME eoq6540
+    FLOW_TIME_UNITS days
+    FLOW 26.99
+    FLOW 27.09
+    FLOW 29.53
+    FLOW 34.02
+    FLOW 46
+    FLOW 54.46
+    FLOW 73.02
+    FLOW 91.85
+    FLOW 263.5
+    Exceedance times calculated and stored in e_table "eoq6540".
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME sq6540
+    NEW_E_TABLE_NAME esq6540
+    FLOW_TIME_UNITS days
+    FLOW 26.99
+    FLOW 27.09
+    FLOW 29.53
+    FLOW 34.02
+    FLOW 46
+    FLOW 54.46
+    FLOW 73.02
+    FLOW 91.85
+    FLOW 263.5
+    Exceedance times calculated and stored in e_table "esq6540".
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/Q_PheasBr_7948.ssf
+    SITE 05427948
+    NEW_SERIES_NAME oq7948i
+    Reading site sample file ../data/Q_PheasBr_7948.ssf....
+    Series "oq7948i" successfully imported from file ../data/Q_PheasBr_7948.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oq7948i
+    NEW_SERIES_NAME oq7948r
+    DATE_1 01/03/1985
+    DATE_2 12/30/2007
+    Series "oq7948r" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oq7948r
+    NEW_SERIES_NAME oq7948
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "oq7948" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sq7948i
+    TB_SERIES_NAME oq7948
+    NEW_SERIES_NAME sq7948
+    New series "sq7948" successfully calculated.
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME oq7948
+    NEW_E_TABLE_NAME eoq7948
+    FLOW_TIME_UNITS days
+    FLOW 0.43
+    FLOW 0.68
+    FLOW 0.86
+    FLOW 1.3
+    FLOW 2
+    FLOW 3.2
+    FLOW 7.2
+    FLOW 16
+    FLOW 60.73
+    Exceedance times calculated and stored in e_table "eoq7948".
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME sq7948
+    NEW_E_TABLE_NAME esq7948
+    FLOW_TIME_UNITS days
+    FLOW 0.43
+    FLOW 0.68
+    FLOW 0.86
+    FLOW 1.3
+    FLOW 2
+    FLOW 3.2
+    FLOW 7.2
+    FLOW 16
+    FLOW 60.73
+    Exceedance times calculated and stored in e_table "esq7948".
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/Q_Vermont_HYKP_65145.ssf
+    SITE 054065145
+    NEW_SERIES_NAME oq65145i
+    Reading site sample file ../data/Q_Vermont_HYKP_65145.ssf....
+    Series "oq65145i" successfully imported from file ../data/Q_Vermont_HYKP_65145.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oq65145i
+    NEW_SERIES_NAME oq65145r
+    DATE_1 11/10/2004
+    DATE_2 09/30/2005
+    Series "oq65145r" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oq65145r
+    NEW_SERIES_NAME oq65145
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "oq65145" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sq65145i
+    TB_SERIES_NAME oq65145
+    NEW_SERIES_NAME sq65145
+    New series "sq65145" successfully calculated.
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME oq65145
+    NEW_E_TABLE_NAME eoq65145
+    FLOW_TIME_UNITS days
+    FLOW 2.3
+    FLOW 2.7
+    FLOW 3.04
+    FLOW 3.7
+    FLOW 5
+    FLOW 6.6
+    FLOW 10.6
+    FLOW 14
+    FLOW 39.4
+    Exceedance times calculated and stored in e_table "eoq65145".
+
+ Processing EXCEEDANCE_TIME block....
+    context all
+    SERIES_NAME sq65145
+    NEW_E_TABLE_NAME esq65145
+    FLOW_TIME_UNITS days
+    FLOW 2.3
+    FLOW 2.7
+    FLOW 3.04
+    FLOW 3.7
+    FLOW 5
+    FLOW 6.6
+    FLOW 10.6
+    FLOW 14
+    FLOW 39.4
+    Exceedance times calculated and stored in e_table "esq65145".
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/DANE_CO_TRUAX_FIELD_SNOW_INCHES.ssf
+    SITE truax
+    NEW_SERIES_NAME ostruaxi
+    Reading site sample file ../data/DANE_CO_TRUAX_FIELD_SNOW_INCHES.ssf....
+    Series "ostruaxi" successfully imported from file ../data/DANE_CO_TRUAX_FIELD_SNOW_INCHES.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME ostruaxi
+    NEW_SERIES_NAME ostruaxr
+    DATE_1 01/01/1985
+    DATE_2 12/30/2007
+    Series "ostruaxr" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME ostruaxr
+    NEW_SERIES_NAME ostruax
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "ostruax" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sstruaxi
+    TB_SERIES_NAME ostruax
+    NEW_SERIES_NAME sstruax
+    New series "sstruax" successfully calculated.
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/DANE_CO_TRUAX_FIELD_SOLAR_RADIATION_LANGLEYS.ssf
+    SITE trx_sol
+    NEW_SERIES_NAME osolradi
+    Reading site sample file ../data/DANE_CO_TRUAX_FIELD_SOLAR_RADIATION_LANGLEYS.ssf....
+    Series "osolradi" successfully imported from file ../data/DANE_CO_TRUAX_FIELD_SOLAR_RADIATION_LANGLEYS.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME osolradi
+    NEW_SERIES_NAME osolradr
+    DATE_1 01/01/1985
+    DATE_2 12/30/2007
+    Series "osolradr" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME osolradr
+    NEW_SERIES_NAME osolrad
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "osolrad" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME soradi
+    TB_SERIES_NAME osolrad
+    NEW_SERIES_NAME sorad
+    New series "sorad" successfully calculated.
+
+ Processing LIST_OUTPUT block....
+    context all
+    FILE tsp_OBSERVATIONS.txt
+    SERIES_NAME oq6500l
+    SERIES_NAME oq6500t
+    SERIES_FORMAT long
+    Writing output file tsp_OBSERVATIONS.txt....
+    File tsp_OBSERVATIONS.txt written ok.
+
+ Processing LIST_OUTPUT block....
+    context all
+    FILE tsp_SIMULATED_VALUES.txt
+    SERIES_NAME sq6500l
+    SERIES_NAME sq6500t
+    SERIES_FORMAT long
+    Writing output file tsp_SIMULATED_VALUES.txt....
+    File tsp_SIMULATED_VALUES.txt written ok.
+
+ Processing WRITE_PEST_FILES block....
+    context all
+    NEW_PEST_CONTROL_FILE pest.pst
+    AUTOMATIC_USER_INTERVENTION yes
+    TEMPLATE_FILE par2par_base.tpl
+    MODEL_INPUT_FILE par2par_base.dat
+    NEW_INSTRUCTION_FILE observation.ins
+    OBSERVATION_SERIES_NAME oq6500l
+    MODEL_SERIES_NAME sq6500l
+    SERIES_WEIGHTS_EQUATION "1."
+    OBSERVATION_SERIES_NAME oq6500t
+    MODEL_SERIES_NAME sq6500t
+    SERIES_WEIGHTS_EQUATION "1."
+    PARAMETER_GROUP_FILE groups.dat
+    PARAMETER_DATA_FILE parameters.dat
+    MODEL_COMMAND_LINE modelcmd_ts.bat
+    Reading parameter group file groups.dat ....
+    - data for 4 parameter groups read from file groups.dat
+    Reading parameter data file parameters.dat ....
+    - data for 6 parameters read from file parameters.dat
+    Reading template file par2par_base.tpl ....
+    - 6 parameter names read from file par2par_base.tpl
+    Writing instruction file observation.ins ....
+    - file observation.ins written ok.
+    Writing PEST control file pest.pst ....
+    - file pest.pst written ok.
+
+ - no more blocks to process.

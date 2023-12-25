@@ -16,11 +16,13 @@ from dateutil.parser import parse
 from fortranformat import FortranRecordWriter
 from hydrotoolbox import hydrotoolbox
 from hydrotoolbox.hydrotoolbox import baseflow_sep
+from matplotlib import pyplot as plt
 from numpy import abs
 from numpy import arccos as acos
 from numpy import arcsin as asin
 from numpy import arctan as atan
 from numpy import cos, cosh, exp, log, log10, sin, sinh, sqrt, tan, tanh
+from plottoolbox import plottoolbox
 
 try:
     from pydantic import validate_call
@@ -58,6 +60,10 @@ deprecated = {
 
 def natural_keys(text):
     """Sort strings with embedded numbers naturally."""
+    if not isinstance(text, str):
+        return text
+    if ":" not in text:
+        return text
     words = text.split(":")
     lets = words[0][:2]
     nums = words[0][2:]
@@ -96,11 +102,26 @@ class Tables:
 
         self.ofile = ""
 
+        self.last_list_output_parameters = {}
+
         self.funcs = {
             "SETTINGS": {
                 "args": ["context", "date_format"],
                 "kwds": {},
                 "f": self.settings,
+            },
+            "COPY": {
+                "args": ["CONTEXT", "NEW_ENTITY_NAME"],
+                "kwds": {
+                    "SERIES_NAME": None,
+                    "C_TABLE_NAME": None,
+                    "S_TABLE_NAME": None,
+                    "V_TABLE_NAME": None,
+                    "E_TABLE_NAME": None,
+                    "G_TABLE_NAME": None,
+                    "OVERWRITE": False,
+                },
+                "f": self.copy,
             },
             "DIGITAL_FILTER": {
                 "args": ["CONTEXT", "SERIES_NAME", "NEW_SERIES_NAME", "FILTER_TYPE"],
@@ -460,6 +481,19 @@ class Tables:
                 },
                 "f": self.list_output,
             },
+            "MOVE": {
+                "args": ["CONTEXT", "NEW_ENTITY_NAME"],
+                "kwds": {
+                    "SERIES_NAME": None,
+                    "C_TABLE_NAME": None,
+                    "S_TABLE_NAME": None,
+                    "V_TABLE_NAME": None,
+                    "E_TABLE_NAME": None,
+                    "G_TABLE_NAME": None,
+                    "OVERWRITE": False,
+                },
+                "f": self.move,
+            },
             "NEW_SERIES_UNIFORM": {
                 "args": [
                     "CONTEXT",
@@ -499,6 +533,34 @@ class Tables:
                     "TIME_2": None,
                 },
                 "f": self.period_statistics,
+            },
+            "PLOT": {
+                "args": ["CONTEXT", "SERIES_NAME", "FILE"],
+                "kwds": {
+                    "KIND": "line",
+                    "XLABEL": "",
+                    "YLABEL": "",
+                    "TITLE": "",
+                    "FIGSIZE_WIDTH": 10,
+                    "FIGSIZE_HEIGHT": 6.0,
+                    "LEGEND": True,
+                    "LEGEND_NAMES": None,
+                    "STYLE": None,
+                    "LOGX": False,
+                    "LOGY": False,
+                    "XLIM_MIN": None,
+                    "XLIM_MAX": None,
+                    "YLIM_MIN": None,
+                    "YLIM_MAX": None,
+                    "SECONDARY_Y": None,
+                    "MARK_RIGHT": True,
+                    "GRID": False,
+                    "DATE_1": None,
+                    "TIME_1": None,
+                    "DATE_2": None,
+                    "TIME_2": None,
+                },
+                "f": self.plot,
             },
             "REDUCE_TIME_SPAN": {
                 "args": ["CONTEXT", "SERIES_NAME", "NEW_SERIES_NAME"],
@@ -675,6 +737,22 @@ class Tables:
             },
         }
 
+    def _get_c_table(self, c_table_name: str):
+        """Get a c_table from the c_table dataframe."""
+        return self.c_table[c_table_name.upper()].dropna()
+
+    def _get_e_table(self, e_table_name: str):
+        """Get a e_table from the e_table dataframe."""
+        return self.e_table[e_table_name.upper()].dropna()
+
+    def _get_g_table(self, g_table_name: str):
+        """Get a g_table from the g_table dataframe."""
+        return self.g_table[g_table_name.upper()].dropna()
+
+    def _get_s_table(self, s_table_name: str):
+        """Get a s_table from the s_table dataframe."""
+        return self.s_table[s_table_name.upper()].dropna()
+
     def _get_series(self, series_name: str):
         """Get a series from the series dataframe."""
         series_name = series_name.upper()
@@ -683,7 +761,7 @@ class Tables:
 
     def _get_v_table(self, v_table_name: str):
         """Get a v_table from the v_table dataframe."""
-        return self.v_table[v_table_name].dropna()
+        return self.v_table[v_table_name.upper()].dropna()
 
     def _join(
         self,
@@ -826,6 +904,11 @@ class Tables:
             test, "'POWER' or any of the following: 'MAXMEAN_n', 'MINMEAN_n'"
         )
         series = self._get_series(series_name)
+        series = tsutils.common_kwds(
+            series,
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
+        )
         series = series.asfreq(series.index.freqstr)
 
         if log:
@@ -833,12 +916,6 @@ class Tables:
 
         if powertest:
             series = np.power(series, power)
-
-        series = tsutils.common_kwds(
-            series,
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
 
         series = series.loc[
             series.first_valid_index() : series.last_valid_index(), series.columns[0]
@@ -885,6 +962,57 @@ class Tables:
         elif filter_type.lower() in ("baseflow_separation"):
             filtered = baseflow_sep.chapman(series)
         self._join(new_series_name, series=filtered)
+
+    @validate_call
+    def copy(
+        self,
+        new_entity_name: str,
+        series_name: Optional[str] = None,
+        v_table_name: Optional[str] = None,
+        c_table_name: Optional[str] = None,
+        s_table_name: Optional[str] = None,
+        e_table_name: Optional[str] = None,
+        g_table_name: Optional[str] = None,
+        overwrite: Union[bool, Literal["yes", "no"]] = False,
+    ):
+        """Copy an entity."""
+        overwrite = self._normalize_bools(overwrite)
+
+        if series_name is not None:
+            series = self._get_series(series_name)
+            if overwrite:
+                self.erase_entity(series_name=new_entity_name.upper())
+            self._join(new_entity_name, series=series)
+
+        elif v_table_name is not None:
+            v_table = self._get_v_table(v_table_name)
+            if overwrite:
+                self.erase_entity(v_table_name=new_entity_name.upper())
+            self._join(new_entity_name, v_table=v_table)
+
+        elif c_table_name is not None:
+            c_table = self._get_c_table(c_table_name)
+            if overwrite:
+                self.erase_entity(c_table_name=new_entity_name.upper())
+            self._join(new_entity_name, c_table=c_table)
+
+        elif s_table_name is not None:
+            s_table = self._get_s_table(s_table_name)
+            if overwrite:
+                self.erase_entity(s_table_name=new_entity_name.upper())
+            self._join(new_entity_name, s_table=s_table)
+
+        elif e_table_name is not None:
+            e_table = self._get_e_table(e_table_name)
+            if overwrite:
+                self.erase_entity(e_table_name=new_entity_name.upper())
+            self._join(new_entity_name, e_table=e_table)
+
+        elif g_table_name is not None:
+            g_table = self._get_g_table(g_table_name)
+            if overwrite:
+                self.erase_entity(g_table_name=new_entity_name.upper())
+            self._join(new_entity_name, g_table=g_table)
 
     @validate_call
     def erase_entity(
@@ -979,7 +1107,7 @@ class Tables:
             input_delay = [input_delay]
         if input_delay == [0]:
             input_delay = [0] * len(input_flow)
-        print(f"{flow_delay=}")
+
         e_table = hydrotoolbox.exceedance_time(
             *input_flow,
             input_ts=series,
@@ -992,10 +1120,6 @@ class Tables:
         # an easy way (by using series.min or series.max) to get the total
         # time.
         tot_threshold = series.min() if under_over == "over" else series.max()
-        print(f"{tot_threshold=}")
-        print(f"{series.dropna()=}")
-        print(f"{exceedance_time_units=}")
-        print(f"{under_over=}")
         tot_table = hydrotoolbox.exceedance_time(
             tot_threshold,
             input_ts=series,
@@ -1003,7 +1127,7 @@ class Tables:
             under_over=under_over,
             delays=[0],
         )
-        print(f"{tot_table=}")
+
         input_delay = [i * punits for i in input_delay]
         keys = []
         etv = []
@@ -1011,7 +1135,6 @@ class Tables:
         for flw, dly in zip(input_flow, input_delay):
             keys.append((flw, dly / punits))
             etv.append(e_table[flw])
-            print(tot_table)
             e_totv.append(e_table[flw] / tot_table[tot_threshold])
 
         # Create and join the new e_table.
@@ -1410,8 +1533,6 @@ class Tables:
         time_2: Optional[str] = None,
     ):
         """Get a time series from a UFORE hydrology file."""
-        start_date = self._normalize_datetimes(date_1, time_1)
-        end_date = self._normalize_datetimes(date_2, time_2)
         model_reference_date = self._normalize_datetimes(
             model_reference_date, model_reference_time
         )
@@ -1429,8 +1550,8 @@ class Tables:
 
         ts = tsutils.common_kwds(
             ts,
-            start_date=start_date,
-            end_date=end_date,
+            start_date=self._normalize_datetimes(date_1, time_1),
+            end_date=self._normalize_datetimes(date_2, time_2),
         )
         self._join(new_series_name, series=ts)
 
@@ -1646,6 +1767,15 @@ class Tables:
             - e_table: list all e_tables
             - g_table: list all g_tables
         """
+        self.last_list_output_parameters["file"] = file
+        self.last_list_output_parameters["series_name"] = series_name
+        self.last_list_output_parameters["series_format"] = series_format
+        self.last_list_output_parameters["s_table_name"] = s_table_name
+        self.last_list_output_parameters["c_table_name"] = c_table_name
+        self.last_list_output_parameters["v_table_name"] = v_table_name
+        self.last_list_output_parameters["e_table_name"] = e_table_name
+        self.last_list_output_parameters["g_table_name"] = g_table_name
+
         if isinstance(series_name, str):
             series_name = [series_name]
         elif series_name is None:
@@ -1673,125 +1803,135 @@ class Tables:
 
         self.ofile = _ins_file or file
 
-        fortran_format = {
-            "table": FortranRecordWriter(r"t5, a, t55, 1PG14.7, /"),
+        fortran_format_data = {
+            "table": FortranRecordWriter(r"(t5, a, t55, 1PG14.7, /)"),
             "series_long": FortranRecordWriter(
-                r"1x, a, t20, a10, 3x, a8, 3x, g16.9, /"
+                r"(1x, a, t20, a10, 3x, a8, 3x, g16.9, /)"
             ),
-            "series_short": FortranRecordWriter(r"4x, g16.9, /"),
+            "series_short": FortranRecordWriter(r"(4x, g16.9, /)"),
+            "series_ssf": FortranRecordWriter(r"(4x, a10, 3x, g16.9, /)"),
             "v_table": FortranRecordWriter(
-                r"t5, 'From ', a10, ' ', a8, ' to ', a10, ' ', a8, '  volume = ', G18.12, /"
+                r"(t5, 'From ', a10, ' ', a8, ' to ', a10, ' ', a8, '  volume = ', G18.12, /)"
+            ),
+            "e_table_header": FortranRecordWriter(
+                r"(t4, 'Flow', t19, 'Time delay (', a, ')', t40, 'Time ', a, ' (', a, ')', t60, 'Fraction of time ', a, ' threshold', /)"
+            ),
+            "e_table_row": FortranRecordWriter(
+                r"(t4, 'Flow', t19, 'Time delay (', a, ')', t40, 'Time ', a, ' (', a, ')', t60, 'Fraction of time ', a, ' threshold', /)"
+            ),
+            "g_table_row": FortranRecordWriter(r"(t4, a, t82, g14.7, /)"),
+        }
+        fortran_format_instructions = {
+            "series_long": FortranRecordWriter(
+                r"('l', a, t6, '[', a, '_', a, ']42:65', /)"
+            ),
+            "series_short": FortranRecordWriter(
+                r"('l', a, t6, '[', a, '_', a, ']2:25', /)"
+            ),
+            "s_table_row": FortranRecordWriter(
+                r"('l', a, t6, '[', a, '_', a, ']51:69', /)"
+            ),
+            "g_table_row": FortranRecordWriter(
+                r"('l', a, t6, '[', a, '_', a, ']82:96', /)"
+            ),
+            "e_table_row": FortranRecordWriter(
+                r"('l', a, t6, '[', a, '_', a, ']59:78', /)"
             ),
         }
 
         # Time series first
         with open(self.ofile, "w", encoding="utf-8") as fp:
-            outp = "pif $\n1l\n" if _ins_file else ""
-            fp.write(outp)
+            fp.write("pif $\n" if _ins_file else "")
             for sern in series_name:
-                outp = "31\n" if _ins_file else f'\n TIME_SERIES "{sern}" ---->\n'
-                fp.write(outp)
+                fp.write(
+                    "" if _ins_file else f'\n TIME_SERIES "{sern.lower()}" ---->\n'
+                )
                 series = self._get_series(sern.upper())
                 start, end = self.series_dates[sern.upper()]
+                line_skip = 3
                 for rowno, (index, value) in enumerate(
                     series.loc[start:end].dropna().items()
                 ):
                     if series_format == "long":
                         date = index.strftime(self.date_format)
                         time = index.strftime("%H:%M:%S")
-                        outp = (
-                            f"l1   [{sern}{rowno+1}]\n"
+                        if series.index.freqstr == "D":
+                            time = "12:00:00"
+                        fp.write(
+                            fortran_format_instructions["series_long"].write(
+                                [f"{line_skip}", sern.lower(), f"{rowno+1}"]
+                            )
                             if _ins_file
-                            else fortran_format["series_long"].write(
-                                [sern, date, time, value]
+                            else fortran_format_data["series_long"].write(
+                                [sern.lower(), date, time, value]
                             )
                         )
                     elif series_format == "short":
-                        outp = (
-                            f"1l    [{sern}{rowno+1}]\n"
+                        fp.write(
+                            fortran_format_instructions["series_short"].write(
+                                [f"{line_skip}", sern, f"{rowno+1}"]
+                            )
                             if _ins_file
-                            else fortran_format["series_short"].write([value])
+                            else fortran_format_data["series_short"].write([value])
                         )
                     elif series_format == "ssf":
-                        outp = (
-                            "1l    [{sern}{rowno+1}]\n"
+                        fp.write(
+                            fortran_format_instructions["series_long"].write(
+                                [f"{line_skip}", sern, f"{rowno+1}"]
+                            )
                             if _ins_file
-                            else fortran_format["series_ssf"].write([sern, value])
+                            else fortran_format_data["series_ssf"].write([sern, value])
                         )
-                    fp.write(outp)
-            outp = "11\n" if _ins_file else ""
-            fp.write(outp)
+                    line_skip = 1
 
             for s_tab in s_table_name:
-                s_TAB = s_tab.upper()
-                st = self.s_table[s_TAB].dropna()
-                source_name = self.s_table_metadata[s_TAB]["source_name"]
-                start_date = self.s_table_metadata[s_TAB]["start_date"].strftime(
-                    "%Y-%m-%d"
-                )
-                end_date = self.s_table_metadata[s_TAB]["end_date"].strftime("%Y-%m-%d")
-                log_transformed = self.s_table_metadata[s_TAB]["log_transformed"]
-                exponent = self.s_table_metadata[s_TAB]["exponent"]
-                outp = (
+                st = self._get_s_table(s_tab.upper()).dropna()
+                stab_meta = self.s_table_metadata[s_tab.upper()]
+                fp.write(
                     "l8\n"
                     if _ins_file
                     else f"""
  S_TABLE "{s_tab}" ---->
-     Series for which data calculated:                 {source_name}
-     Starting date for data accumulation:              {start_date}
-     Ending date for data accumulation                 {end_date}
-     Logarithmic transformation of series?             {log_transformed}
-     Exponent in power transformation:                 {exponent}
+     Series for which data calculated:                 "{stab_meta["source_name"].lower()}"
+     Starting date for data accumulation:              {stab_meta["start_date"].strftime("%Y-%m-%d")}
+     Ending date for data accumulation                 {stab_meta["end_date"].strftime("%Y-%m-%d")}
+     Logarithmic transformation of series?             {stab_meta["log_transformed"]}
+     Exponent in power transformation:                 {stab_meta["exponent"]}
 """
                 )
-                fp.write(outp)
                 for index, value in st.items():
-                    outp = (
+                    fp.write(
                         "1l {s_tab}  \n"
                         if _ins_file
-                        else fortran_format["table"].write([index, value])
+                        else fortran_format_data["table"].write([index, value])
                     )
-                    fp.write(outp)
 
             for c_tab in c_table_name:
-                c_TAB = c_tab.upper()
-                stats = self.c_table[c_TAB].dropna()
-                obs_name = self.c_table_metadata[c_TAB]["obs_name"]
-                sim_name = self.c_table_metadata[c_TAB]["sim_name"]
-                start_date = self.c_table_metadata[c_TAB]["start_date"].strftime(
-                    "%Y-%m-%d"
-                )
-                start_time = self.c_table_metadata[c_TAB]["start_date"].strftime(
-                    "%H:%M:%S"
-                )
-                end_date = self.c_table_metadata[c_TAB]["end_date"].strftime("%Y-%m-%d")
-                end_time = self.c_table_metadata[c_TAB]["end_date"].strftime("%H:%M:%S")
-                num_terms = self.c_table_metadata[c_TAB]["num_terms"]
-                outp = (
-                    "FIXME"
+                stats = self._get_c_table(c_tab).dropna()
+                ctab = self.c_table_metadata[c_tab.upper()]
+                fp.write(
+                    "l9\n"
                     if _ins_file
                     else f"""
  C_TABLE "{c_tab}" ---->
-    Observation time series name:                     "{obs_name.lower()}"
-    Simulation time series name:                      "{sim_name.lower()}"
-    Beginning date of series comparison:              {start_date}
-    Beginning time of series comparison:              {start_time}
-    Finishing date of series comparison:              {end_date}
-    Finishing time of series comparison:              {end_time}
-    Number of series terms in this interval:          {num_terms}
+    Observation time series name:                     "{ctab['obs_name'].lower()}"
+    Simulation time series name:                      "{ctab['sim_name'].lower()}"
+    Beginning date of series comparison:              {ctab["start_date"].strftime("%Y-%m-%d")}
+    Beginning time of series comparison:              {ctab["start_date"].strftime("%H:%M:%S")}
+    Finishing date of series comparison:              {ctab["end_date"].strftime("%Y-%m-%d")}
+    Finishing time of series comparison:              {ctab["end_date"].strftime("%H:%M:%S")}
+    Number of series terms in this interval:          {ctab["num_terms"]}
 """
                 )
-                fp.write(outp)
                 for index, value in stats.items():
-                    outp = (
-                        "FIXME"
+                    fp.write(
+                        fortran_format_instructions["table"].write([index, value])
                         if _ins_file
-                        else fortran_format["table"].write([index, value])
+                        else fortran_format_data["table"].write([index, value])
                     )
-                    fp.write(outp)
 
             for v_tab in v_table_name:
-                outp = (
+                fp.write(
                     "l4"
                     if _ins_file
                     else f"""
@@ -1799,13 +1939,12 @@ class Tables:
      Volumes calculated from series "{self.v_table_metadata[v_tab.upper()]["source_name"]}" are as follows:-
 """
                 )
-                fp.write(outp)
-                v_table = self._get_v_table(v_tab.upper())
+                v_table = self._get_v_table(v_tab)
                 for index, value in v_table.dropna().items():
-                    outp = (
-                        "FIXME"
+                    fp.write(
+                        "v_table"
                         if _ins_file
-                        else fortran_format["v_table"].write(
+                        else fortran_format_data["v_table"].write(
                             [
                                 index[0].strftime(self.date_format),
                                 index[0].strftime("%H:%M:%S"),
@@ -1815,41 +1954,39 @@ class Tables:
                             ]
                         )
                     )
-                    fp.write(outp)
 
             for e_tab in e_table_name:
-                e_TAB = self.e_table[e_tab.upper()]
+                e_tab = self._get_e_table(e_tab)
                 et_tot = self.e_table_tot[e_tab.upper()]
-                units = self.e_table_metadata[e_tab.upper()]["exceedance_time_units"]
-                direction = {"over": "above", "under": "below"}[
-                    self.e_table_metadata[e_tab.upper()]["under_over"]
-                ]
-                outp = (
-                    "4l"
+                etab_meta = self.e_table_metadata[e_tab.upper()]
+                units = etab_meta["exceedance_time_units"]
+                direction = {"over": "above", "under": "below"}[etab_meta["under_over"]]
+                fp.write(
+                    ""
                     if _ins_file
                     else f"""
- E_TABLE "{e_tab}" ---->
+ E_TABLE "{e_tab.lower()}" ---->
 """
                 )
-                fp.write(outp)
-                fformat = FortranRecordWriter(
-                    "t4, 'Flow', t19, 'Time delay (', a, ')', t40, 'Time ', a, ' (', a, ')', t60, 'Fraction of time ', a, ' threshold', /"
-                )
-                outp = (
-                    "4l"
+                fp.write(
+                    ""
                     if _ins_file
-                    else fformat.write([units, direction, units, direction])
+                    else fortran_format_data["e_table_header"].write(
+                        [units, direction, units, direction]
+                    )
                 )
-                fp.write(outp)
-                for index, value in e_TAB.dropna().items():
-                    outp = (
-                        "FIXME"
+                line_skip = 4
+                for row, (index, value) in enumerate(e_tab.dropna().items(), start=1):
+                    fp.write(
+                        fortran_format_instructions["e_table_row"].write(
+                            [f"{line_skip}", e_tab.lower(), f"{row}"]
+                        )
                         if _ins_file
                         else FortranRecordWriter(
                             "t2, g14.7, t20, g14.7, t40, g14.7, t63, g14.7, /"
                         ).write([index[0], index[1], value, et_tot[index]])
                     )
-                    fp.write(outp)
+                    line_skip = 1
 
             for g_tab in g_table_name:
                 src = self.g_table_metadata[g_tab.upper()]["source"]
@@ -1857,17 +1994,24 @@ class Tables:
                 start_date = self.g_table_metadata[g_tab.upper()]["start_date"]
                 end_date = self.g_table_metadata[g_tab.upper()]["end_date"]
 
-                outp = f"""
+                g_table = self.g_table[g_tab.upper()].dropna()
+                sindex = sorted(g_table.index, key=natural_keys)
+                g_table = g_table.loc[sindex]
+
+                fp.write(
+                    ""
+                    if _ins_file
+                    else f"""
  G_TABLE "{g_tab}" ---->
 """
-                fp.write(outp)
+                )
 
                 if kind == "flow_duration":
                     #  G_TABLE "mduration" ---->
                     #    Flow-duration curve for series "mflow" (11/08/8672 to 11/07/8693)                     Value
                     #    99.50% of flows exceed:                                                         4.912684
-                    outp = (
-                        "FIXME"
+                    fp.write(
+                        ""
                         if _ins_file
                         else FortranRecordWriter(
                             "t4, 'Flow duration curve for ', a, ' ', a, ':', a, t85, 'Value', /"
@@ -1879,22 +2023,28 @@ class Tables:
                             ]
                         )
                     )
-                    fp.write(outp)
-                    g_table = self.g_table[g_tab.upper()].dropna()
+
+                    line_skip = 4
                     g_table = g_table.sort_index(ascending=False)
-                    for index, value in g_table.dropna().items():
-                        outp = (
-                            "FIXME"
+                    for row, (index, value) in enumerate(
+                        g_table.dropna().items(), start=1
+                    ):
+                        fp.write(
+                            fortran_format_instructions["g_table_row"].write(
+                                [f"{line_skip}", g_tab.lower(), f"{row}"]
+                            )
                             if _ins_file
-                            else f"   {index*100:5.02f}% of flows exceed:{value:>60.15g}\n"
+                            else fortran_format_data["g_table_row"].write(
+                                [f"{index:>6.02%} of flows exceed:", value]
+                            )
                         )
-                        fp.write(outp)
+                        line_skip = 1
                 elif kind == "hydrologic_indices":
                     #  G_TABLE "mduration_p" ---->
                     #    Hydrologic Index and description (Olden and Poff, 2003)                               Value
                     #    MA16: Mean monthly flow May-Aug:                                                      4.912684
-                    outp = (
-                        "FIXME"
+                    fp.write(
+                        ""
                         if _ins_file
                         else FortranRecordWriter(
                             "t4, 'Hydrologic index for ', a, ' ', a, ':', a, t85, 'Value', /"
@@ -1906,21 +2056,53 @@ class Tables:
                             ]
                         )
                     )
-                    fp.write(outp)
 
-                    g_table = self.g_table[g_tab.upper()].dropna()
-                    sindex = sorted(g_table.index, key=natural_keys)
-                    g_table = g_table.loc[sindex]
-
-                    for index, value in g_table.items():
-                        outp = (
-                            "FIXME"
+                    line_skip = 4
+                    for row, (index, value) in enumerate(g_table.items(), start=1):
+                        fp.write(
+                            fortran_format_instructions["g_table_row"].write(
+                                [f"{line_skip}", g_tab.lower(), f"{row}"]
+                            )
                             if _ins_file
                             else FortranRecordWriter("t4, a, t82, g14.7, /").write(
                                 [index, value]
                             )
                         )
-                        fp.write(outp)
+                        line_skip = 1
+
+    @validate_call
+    def move(
+        self,
+        new_entity_name: str,
+        series_name: Optional[str] = None,
+        v_table_name: Optional[str] = None,
+        c_table_name: Optional[str] = None,
+        s_table_name: Optional[str] = None,
+        e_table_name: Optional[str] = None,
+        g_table_name: Optional[str] = None,
+        overwrite: Union[bool, Literal["yes", "no"]] = False,
+    ):
+        """Move an entity."""
+        overwrite = self._normalize_bools(overwrite)
+
+        self.copy(
+            new_entity_name,
+            series_name=series_name,
+            v_table_name=v_table_name,
+            c_table_name=c_table_name,
+            s_table_name=s_table_name,
+            e_table_name=e_table_name,
+            g_table_name=g_table_name,
+            overwrite=overwrite,
+        )
+        self.erase_entity(
+            series_name=series_name,
+            v_table_name=v_table_name,
+            c_table_name=c_table_name,
+            s_table_name=s_table_name,
+            e_table_name=e_table_name,
+            g_table_name=g_table_name,
+        )
 
     @validate_call
     def new_series_uniform(
@@ -2022,6 +2204,52 @@ class Tables:
         self._join(new_series_name, series=series)
 
     @validate_call
+    def plot(self, series_name: Union[str, list], file: str, **kwargs):
+        """Plot a time series."""
+        if isinstance(series_name, str):
+            series_name = [series_name]
+        date_1 = kwargs.pop("date_1", None)
+        time_1 = kwargs.pop("time_1", None)
+        date_2 = kwargs.pop("date_2", None)
+        time_2 = kwargs.pop("time_2", None)
+
+        series = pd.DataFrame()
+        for prepared in [
+            self._prepare_series(
+                sn,
+                date_1=date_1,
+                time_1=time_1,
+                date_2=date_2,
+                time_2=time_2,
+            )
+            for sn in series_name
+        ]:
+            series = series.join(prepared, how="outer")
+
+        if isinstance(kwargs.get("secondary_y", None), str):
+            kwargs["secondary_y"] = [kwargs["secondary_y"].upper()]
+        elif isinstance(kwargs.get("secondary_y", None), (list, tuple)):
+            kwargs["secondary_y"] = [sn.upper() for sn in kwargs["secondary_y"]]
+
+        kwargs["xlim"] = (kwargs.pop("xlim_min", None), kwargs.pop("xlim_max", None))
+        kwargs["ylim"] = (kwargs.pop("ylim_min", None), kwargs.pop("ylim_max", None))
+
+        kwargs["figsize"] = (
+            kwargs.pop("figsize_width", 10),
+            kwargs.pop("figsize_height", 6),
+        )
+
+        kwargs["legend"] = self._normalize_bools(kwargs["legend"])
+        kwargs["logx"] = self._normalize_bools(kwargs["logx"])
+        kwargs["logy"] = self._normalize_bools(kwargs["logy"])
+        kwargs["mark_right"] = self._normalize_bools(kwargs["mark_right"])
+        kwargs["grid"] = self._normalize_bools(kwargs["grid"])
+
+        ax = series.plot(**kwargs)
+        ax.figure.savefig(file)
+        plt.close(ax.figure)
+
+    @validate_call
     def reduce_time_span(
         self,
         series_name: str,
@@ -2061,7 +2289,7 @@ class Tables:
             series = -series
         if self._normalize_bools(substitute):
             new_series_name = series_name
-            self.erase_entity(new_series_name=new_series_name)
+            self.erase_entity(series_name=new_series_name)
         self._join(new_series_name, series=series)
 
     @validate_call
@@ -2077,10 +2305,10 @@ class Tables:
         if substitute_value == "delete":
             substitute_value = pd.NA
         series = self._get_series(series_name)
-        if lower_erase_boundary is not None:
-            series[series > lower_erase_boundary] = substitute_value
-        if upper_erase_boundary is not None:
-            series[series < upper_erase_boundary] = substitute_value
+        if isinstance(lower_erase_boundary, (int, float)):
+            series[series >= lower_erase_boundary] = substitute_value
+        if isinstance(upper_erase_boundary, (int, float)):
+            series[series <= upper_erase_boundary] = substitute_value
         self._join(new_series_name, series=series)
 
     @validate_call
@@ -2163,7 +2391,7 @@ class Tables:
             stats["Nash-Sutcliffe coefficient:"] = gof(
                 stats="nse", sim_col=series_sim, obs_col=series_obs
             )[0][1]
-        if self._normalize_bools(coefficient_of_efficiency) and exponent in [2, 1]:
+        if self._normalize_bools(coefficient_of_efficiency) and exponent in {2, 1}:
             stats["Coefficient of efficiency:"] = gof(
                 stats="lm_index", sim_col=series_sim, obs_col=series_obs
             )[0][1]
@@ -2318,10 +2546,10 @@ class Tables:
                 if "min" in stat:
                     s_table.loc[key, :] = grouped.min()
         self._join(new_s_table_name, s_table=s_table)
-        self.s_table_metadata[new_s_table_name] = {
+        self.s_table_metadata[new_s_table_name.upper()] = {
             "source_name": series_name,
-            "start_date": series[0],
-            "end_date": series[-1],
+            "start_date": series.index[0],
+            "end_date": series.index[-1],
             "log_transformed": log,
             "exponent": power,
         }
@@ -2488,285 +2716,329 @@ class Tables:
         **kwds,
     ):
         """Write PEST control file and instruction file."""
-        pst = pyemu.Pst.from_io_files(
-            template_file, model_input_file, new_instruction_file, self.ofile
-        )
-        pst.write(new_pest_control_file)
+        self.last_list_output_parameters["_ins_file"] = new_instruction_file
+        self.list_output(**self.last_list_output_parameters)
+        # pst = pyemu.Pst.from_io_files(
+        #     template_file, model_input_file, new_instruction_file, self.ofile
+        # )
+        # pst.write(new_pest_control_file)
 
+    def get_blocks(self, seq):
+        """Return blocks of lines between "START ..." lines.
 
-def get_blocks(seq):
-    """Return blocks of lines between "START ..." lines.
+        The block below from a tsproc file::
 
-    The block below from a tsproc file::
+            START GET_SERIES_WDM
+             CONTEXT context_1
+             NEW_SERIES_NAME IN02329500 IN02322500
+             FILE data_test.wdm
+             DSN 1 2
+             FILTER -999
+            END GET_SERIES_WDM
 
-        START GET_SERIES_WDM
-         CONTEXT context_1
-         NEW_SERIES_NAME IN02329500 IN02322500
-         FILE data_test.wdm
-         DSN 1 2
-         FILTER -999
-        END GET_SERIES_WDM
+        Should yield::
 
-    Should yield::
+           [
+            [
+              ['START', 'GET_SERIES_WDM'],
+              ['CONTEXT', 'context_1'],
+              ['NEW_SERIES_NAME', 'IN02329500', 'IN02322500'],
+              ['FILE', 'data_test.wdm'],
+              ['DSN', '1'],
+              ['FILTER', '-999'],
+              ['END', 'GET_SERIES_WDM']
+            ],
+           ]
 
-       [
-        [
-          ['START', 'GET_SERIES_WDM'],
-          ['CONTEXT', 'context_1'],
-          ['NEW_SERIES_NAME', 'IN02329500', 'IN02322500'],
-          ['FILE', 'data_test.wdm'],
-          ['DSN', '1'],
-          ['FILTER', '-999'],
-          ['END', 'GET_SERIES_WDM']
-        ],
-       ]
+        All arguments and keyword names are lower-cased internally.  This allows
+        case insensitivity in the keyword value.
+        """
+        inblock = False
+        data = []
+        for index, line in enumerate(seq):
+            nline = line.strip()
 
-    All arguments and keyword names are lower-cased internally.  This allows
-    case insensitivity in the keyword value.
-    """
-    inblock = False
-    data = []
-    for index, line in enumerate(seq):
-        nline = line.strip()
+            # Handle comment lines and partial comment lines.  Everything from
+            # a "#" to the end of the line is a comment.
+            with suppress(ValueError):
+                nline = nline[: nline.index("#")].rstrip()
 
-        # Handle comment lines and partial comment lines.  Everything from
-        # a "#" to the end of the line is a comment.
-        with suppress(ValueError):
-            nline = nline[: nline.index("#")].rstrip()
+            # Handle blank lines.
+            if not nline:
+                continue
 
-        # Handle blank lines.
-        if not nline:
-            continue
+            # Can't use 'tsutils.make_list(nline, sep=" ")' because need to have
+            # number labels that are strings rather than integers.
+            words = nline.split()
+            keyword = words[0].lower()
 
-        # Can't use 'tsutils.make_list(nline, sep=" ")' because need to have
-        # number labels that are strings rather than integers.
-        words = nline.split()
-        keyword = words[0].lower()
-
-        # Test for "START ..." at the beginning of the line, start collecting
-        # lines and yield data and line index when reaching the next "END ...".
-        #
-        # Collect the line index of the START keyword in order to report
-        # location of any errors.
-        if keyword == "start":
-            inblock = True
-            lindex = index + 1
-
-        if inblock is True:
+            # Test for "START ..." at the beginning of the line, start collecting
+            # lines and yield data and line index when reaching the next "END ...".
+            #
+            # Collect the line index of the START keyword in order to report
+            # location of any errors.
             if keyword == "start":
-                block_name = words[1].lower()
-            data.append([keyword] + words[1:])
+                inblock = True
+                lindex = index + 1
 
-        if keyword == "end":
-            if block_name != words[1].lower():
+            if inblock is True:
+                if keyword == "start":
+                    block_name = words[1].lower()
+                data.append([keyword] + words[1:])
+
+            if keyword == "end":
+                if block_name != words[1].lower():
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            The block name in the END line at line {index+1} does
+                            not match the block name in the START line.
+                            """
+                        )
+                    )
+                inblock = False
+                yield data, lindex
+                data = []
+
+    def run(self, infile, running_context=None):
+        """Parse a tsproc file."""
+        blocks = []
+        lnumbers = []
+        with open(infile, encoding="utf-8") as fpi:
+            for index, group_lnumber in enumerate(self.get_blocks(fpi)):
+                group, lnumber = group_lnumber
+                # Unroll the block.
+
+                # First find the maximum number of words from each line in the
+                # group and store in "maxl".
+                maxl = 2
+                rollable = True
+                duplicates = False
+                for line in group:
+                    if line[1].lower() == "settings":
+                        break
+                    if line[0].lower() == "end":
+                        continue
+                    if line[1].lower() in (
+                        "exceedance_time",
+                        "exceedence_time",
+                        "flow_duration",
+                        "get_mul_series_gsflow_gage",
+                        "get_mul_series_plotgen",
+                        "get_mul_series_ssf",
+                        "get_mul_series_statvar",
+                        "hydrologic_indices",
+                        "list_output",
+                        "plot",
+                        "series_equation",
+                        "write_pest_files",
+                    ):
+                        rollable = False
+                    if line[1].lower() in (
+                        "exceedance_time",
+                        "exceedence_time",
+                        "get_mul_series_gsflow_gage",
+                        "get_mul_series_plotgen",
+                        "get_mul_series_ssf",
+                        "get_mul_series_statvar",
+                        "hydrologic_indices",
+                        "list_output",
+                        "plot",
+                        "write_pest_files",
+                    ):
+                        duplicates = True
+
+                    # The following is to guarantee that WRITE_PEST_FILES is
+                    # preceded by a LIST_OUTPUT block.
+                    if line[1].lower() == "list_output":
+                        prev_list_output_index = index
+                    if (
+                        line[1].lower() == "write_pest_files"
+                        and prev_list_output_index != index - 1
+                    ):
+                        raise ValueError(
+                            tsutils.error_wrapper(
+                                """
+                                The "WRITE_PEST_FILES" block must be
+                                immediately preceded by a "LIST_OUTPUT" block.
+                                The "LIST_OUTPUT" block should contain all the
+                                simulated data to be used in the objective
+                                function in the same order as listed in the
+                                "WRITE_PEST_FILES" block.
+                                """
+                            )
+                        )
+
+                    if len(line) > maxl:
+                        maxl = len(line)
+
+                # Use "maxl" loops to create new groups.
+                if rollable is True:
+                    for unrolled in range(1, maxl):
+                        ngroup = []
+                        for line in group[:-1]:
+                            # Take the "line[unrolled]" element if available,
+                            # otherwise take the last element.
+                            try:
+                                ngroup.append([line[0]] + [line[unrolled]])
+                            except IndexError:
+                                ngroup.append([line[0]] + [line[-1]])
+                        blocks.append(ngroup)
+                        lnumbers.append(lnumber)
+                else:
+                    ngroup = []
+                    ordered = OrderedDict()
+                    for line in group[:-1]:
+                        if duplicates is True:
+                            if line[0] in ordered.keys():
+                                ordered[line[0]].append(line[1])
+                            else:
+                                ordered[line[0]] = [line[1]]
+                        else:
+                            ngroup.append(line)
+                    ngroup.extend([key] + value for key, value in ordered.items())
+                    blocks.append(ngroup)
+                    lnumbers.append(lnumber)
+
+        if running_context is None:
+            for block in blocks:
+                if block[0] == ["start", "SETTINGS"]:
+                    for blk in block[1:]:
+                        if blk[0] == "context":
+                            running_context = blk[1]
+                            break
+                    break
+
+        # Current setup forces me to print here with a near duplicate of the
+        # loop below.  I don't like it, but it works.
+        for block, lnum in zip(blocks, lnumbers):
+            print("")
+            for line in block:
+                if line[0] == "context":
+                    if line[1] == running_context:
+                        print(
+                            f"# RUNNING following block @ line {lnum} because CONTEXT is 'all'."
+                        )
+                    elif line[1] == "all":
+                        print(
+                            f"# RUNNING following block @ line {lnum} because CONTEXT '{line[1]}' matches running CONTEXT."
+                        )
+                    else:
+                        print(
+                            f"# SKIPPING following block @ line {lnum} because CONTEXT '{line[1]}' doesn't match running CONTEXT."
+                        )
+                    break
+            for line in block:
+                if line[0] == "start":
+                    block_name = line[1]
+                    print(f"START {block_name}")
+                else:
+                    print(f"  {line[0].upper()} {' '.join(line[1:])}")
+            print(f"END {block_name}")
+
+        runblocks = []
+        nnumbers = []
+        for block, lnum in zip(blocks, lnumbers):
+            for line in block:
+                if (line[0] == "context" and line[1] == running_context) or line[
+                    1
+                ] == "all":
+                    runblocks.append(block)
+                    nnumbers.append(lnum)
+                    break
+
+        for block, lnum in zip(runblocks, nnumbers):
+            keys = [i[0] for i in block if i[0] != "start"]
+            self.line_number = lnum
+            self.block_name = [i[1] for i in block if i[0] == "start"][0].upper()
+            if self.block_name in deprecated:
+                warning(
+                    f"""
+                    WARNING: The block "{self.block_name}" @ line number {lnum}
+                    is deprecated within tsblender. {deprecated[self.block_name]}
+                    """
+                )
+            args = [
+                i.lower()
+                for i in self.funcs[self.block_name]["args"]
+                if i.lower() != "context"
+            ]
+            kwds = {
+                key.lower(): val
+                for key, val in self.funcs[self.block_name]["kwds"].items()
+            }
+            if any(elem not in keys for elem in args):
                 raise ValueError(
                     tsutils.error_wrapper(
                         f"""
-                        The block name in the END line at line {index+1} does
-                        not match the block name in the START line.
+                        All parameters in "{args}" are required for
+                        "{self.block_name}" at line {self.line_number}. You gave
+                        "{keys}".
                         """
                     )
                 )
-            inblock = False
-            yield data, lindex
-            data = []
+            if all(item in args + list(kwds.keys()) for item in keys):
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The available parameters for "{self.block_name}" at line
+                        "{self.line_number}" are "{args + list(kwds.keys())}" but
+                        you gave "{set(args + list(kwds.keys()))-set(keys)}"
+                        """
+                    )
+                )
+            if self.block_name == "settings":
+                continue
+            parameters = {
+                allv[0]: allv[1] if len(allv) == 2 else allv[1:] for allv in block
+            }
+            kwds.update(parameters)
+            parameters = {
+                key.lower(): val for key, val in kwds.items() if val is not None
+            }
+            del parameters["start"]
+            del parameters["context"]
+            if os.path.exists("debug_tsblender"):
+                print(
+                    f"\nPROCESSING: {self.block_name} @ line number {self.line_number} with arguments {parameters}"
+                )
+            with suppress(KeyError):
+                parameters["exceedance_time_units"] = parameters[
+                    "exceedence_time_units"
+                ]
+                del parameters["exceedence_time_units"]
+
+            if self.block_name == "list_output":
+                self.last_list_output_parameters = parameters
+
+            self.funcs[self.block_name]["f"](**parameters)
+
+        if os.path.exists("debug_tsblender"):
+            print("\nTIME SERIES")
+            print(self.series)
+            print("\nS_TABLE")
+            print(self.s_table)
+            print("\nG_TABLE")
+            print(self.g_table)
+            print("\nE_TABLE")
+            print(self.e_table)
+            print("\nE_TABLE_TOT")
+            print(self.e_table_tot)
+            print("\nV_TABLE")
+            print(self.v_table)
+            print("\nC_TABLE")
+            print(self.c_table)
+            print(self.e_table_metadata)
 
 
 @cltoolbox.command()
 def run(infile, running_context=None):
-    """Parse a tsproc file."""
-    blocks = []
-    lnumbers = []
-    with open(infile, encoding="utf-8") as fpi:
-        for index, group_lnumber in enumerate(get_blocks(fpi)):
-            group, lnumber = group_lnumber
-            # Unroll the block.
-
-            # First find the maximum number of words from each line in the
-            # group and store in "maxl".
-            maxl = 2
-            rollable = True
-            duplicates = False
-            for line in group:
-                if line[1].lower() == "settings":
-                    break
-                if line[0].lower() == "end":
-                    continue
-                if line[1].lower() in (
-                    "get_mul_series_plotgen",
-                    "get_mul_series_gsflow_gage",
-                    "get_mul_series_ssf",
-                    "get_mul_series_statvar",
-                    "exceedance_time",
-                    "exceedence_time",
-                    "hydrologic_indices",
-                    "list_output",
-                    "write_pest_files",
-                    "flow_duration",
-                    "series_equation",
-                ):
-                    rollable = False
-                if line[1].lower() in (
-                    "get_mul_series_plotgen",
-                    "get_mul_series_gsflow_gage",
-                    "get_mul_series_ssf",
-                    "get_mul_series_statvar",
-                    "exceedance_time",
-                    "exceedence_time",
-                    "hydrologic_indices",
-                    "list_output",
-                    "write_pest_files",
-                ):
-                    duplicates = True
-
-                # The following is to guarantee that WRITE_PEST_FILES is
-                # preceded by a LIST_OUTPUT block.
-                if line[1].lower() == "list_output":
-                    prev_list_output_index = index
-                if (
-                    line[1].lower() == "write_pest_files"
-                    and prev_list_output_index != index - 1
-                ):
-                    raise ValueError(
-                        tsutils.error_wrapper(
-                            """
-                            The "WRITE_PEST_FILES" block must be
-                            immediately preceded by a "LIST_OUTPUT" block.
-                            The "LIST_OUTPUT" block should contain all the
-                            simulated data to be used in the objective
-                            function in the same order as listed in the
-                            "WRITE_PEST_FILES" block.
-                            """
-                        )
-                    )
-
-                if len(line) > maxl:
-                    maxl = len(line)
-
-            # Use "maxl" loops to create new groups.
-            if rollable is True:
-                for unrolled in range(1, maxl):
-                    ngroup = []
-                    for line in group[:-1]:
-                        # Take the "line[unrolled]" element if available,
-                        # otherwise take the last element.
-                        try:
-                            ngroup.append([line[0]] + [line[unrolled]])
-                        except IndexError:
-                            ngroup.append([line[0]] + [line[-1]])
-                    blocks.append(ngroup)
-                    lnumbers.append(lnumber)
-            else:
-                ngroup = []
-                ordered = OrderedDict()
-                for line in group[:-1]:
-                    if duplicates is True:
-                        if line[0] in ordered.keys():
-                            ordered[line[0]].append(line[1])
-                        else:
-                            ordered[line[0]] = [line[1]]
-                    else:
-                        ngroup.append(line)
-                ngroup.extend([key] + value for key, value in ordered.items())
-                blocks.append(ngroup)
-                lnumbers.append(lnumber)
-
-    if running_context is None:
-        for block in blocks:
-            if block[0] == ["start", "SETTINGS"]:
-                for blk in block[1:]:
-                    if blk[0] == "context":
-                        running_context = blk[1]
-                        break
-                break
-
-    runblocks = []
-    nnumbers = []
-    for block, lnum in zip(blocks, lnumbers):
-        for line in block:
-            if (line[0] == "context" and line[1] == running_context) or line[
-                1
-            ] == "all":
-                runblocks.append(block)
-                nnumbers.append(lnum)
-                break
     data = Tables()
-
-    for block, lnum in zip(runblocks, nnumbers):
-        keys = [i[0] for i in block if i[0] != "start"]
-        data.line_number = lnum
-        data.block_name = [i[1] for i in block if i[0] == "start"][0].upper()
-        if data.block_name in deprecated:
-            warning(
-                f"""
-                WARNING: The block "{data.block_name}" is deprecated within
-                tsblender. {deprecated[data.block_name]}"""
-            )
-        args = [
-            i.lower()
-            for i in data.funcs[data.block_name]["args"]
-            if i.lower() != "context"
-        ]
-        kwds = {
-            key.lower(): val for key, val in data.funcs[data.block_name]["kwds"].items()
-        }
-        if any(elem not in keys for elem in args):
-            raise ValueError(
-                tsutils.error_wrapper(
-                    f"""
-                    All parameters in "{args}" are required for
-                    "{data.block_name}" at line {data.line_number}. You gave
-                    "{keys}".
-                    """
-                )
-            )
-        if all(item in args + list(kwds.keys()) for item in keys):
-            raise ValueError(
-                tsutils.error_wrapper(
-                    f"""
-                    The available parameters for "{data.block_name}" at line
-                    "{data.line_number}" are "{args + list(kwds.keys())}" but
-                    you gave "{set(args + list(kwds.keys()))-set(keys)}"
-                    """
-                )
-            )
-        if data.block_name == "settings":
-            continue
-        parameters = {
-            allv[0]: allv[1] if len(allv) == 2 else allv[1:] for allv in block
-        }
-        kwds.update(parameters)
-        parameters = {key.lower(): val for key, val in kwds.items() if val is not None}
-        del parameters["start"]
-        del parameters["context"]
-        if os.path.exists("debug_tsblender"):
-            print(
-                f"PROCESSING: {data.block_name} @ line number {data.line_number} with arguments {parameters}"
-            )
-        with suppress(KeyError):
-            parameters["exceedance_time_units"] = parameters["exceedence_time_units"]
-            del parameters["exceedence_time_units"]
-        data.funcs[data.block_name]["f"](**parameters)
-    if os.path.exists("debug_tsblender"):
-        print("\nTIME SERIES")
-        print(data.series)
-        print("\nS_TABLE")
-        print(data.s_table)
-        print("\nG_TABLE")
-        print(data.g_table)
-        print("\nE_TABLE")
-        print(data.e_table)
-        print("\nE_TABLE_TOT")
-        print(data.e_table_tot)
-        print("\nV_TABLE")
-        print(data.v_table)
-        print("\nC_TABLE")
-        print(data.c_table)
-        print(data.e_table_metadata)
+    data.run(infile, running_context)
 
 
 def main():
-    """Set debug and run cltoolbox.main function."""
+    """Main function for command line."""
     if not os.path.exists("debug_tsblender"):
         sys.tracebacklimit = 0
     if os.path.exists("profile_tsblender"):
@@ -2777,4 +3049,5 @@ def main():
 
 
 if __name__ == "__main__":
+    """Set debug and run cltoolbox.main function."""
     main()

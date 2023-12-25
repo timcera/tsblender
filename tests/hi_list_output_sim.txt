@@ -1,90 +1,89 @@
 
-
  E_TABLE "ESq6500" ---->
    Flow           Time delay (days)    Time above (days)   Fraction of time above threshold
-   15               0.0000             3562.18358046             0.9754062378
-   18               0.0000             3430.52818581             0.9393560202
-   20               0.0000             3319.84184201             0.9090476019
-   24               0.0000             2937.37728678             0.8043201771
-   31               0.0000             2203.90403386             0.6034786511
-   40               0.0000             1447.98748915             0.3964916454
-   52               0.0000             835.221403281             0.2287024653
-   65               0.0000             476.736759407             0.1305412813
-   130.1            0.0000             104.342614683            0.02857136218
+   15.00000         0.0000000E+00        3562.184              0.9754062
+   18.00000         0.0000000E+00        3430.528              0.9393560
+   20.00000         0.0000000E+00        3319.842              0.9090476
+   24.00000         0.0000000E+00        2937.377              0.8043202
+   31.00000         0.0000000E+00        2203.904              0.6034787
+   40.00000         0.0000000E+00        1447.987              0.3964916
+   52.00000         0.0000000E+00        835.2214              0.2287025
+   65.00000         0.0000000E+00        476.7368              0.1305413
+   130.1000         0.0000000E+00        104.3426              0.2857136E-01
 
  G_TABLE "sim_hyd_indx" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) Sq6500 1954-02-01 to 2007-12-31                      Value
-   MA16: Mean monthly flow: May:                                                               56.8116104419355
-   MA22: Mean monthly flow: November:                                                          39.3972685933333
-   MA34: CV of monthly flow: November:                                                         58.0422348220043
-   ML1: Mean minimum monthly flow: January:                                                           25.478716
-   ML13: CV of minimum monthly flows:                                                          40.0983553960609
-   ML15: Mean minimum annual flow/mean annual flow:                                           0.422587684065136
+   Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
+   MA16: Mean monthly flow: May                                                    56.81161
+   MA22: Mean monthly flow: November                                               39.39727
+   MA34: CV of monthly flow: November                                              58.04223
+   ML1: Mean minimum monthly flow: January                                         25.47872
+   ML13: CV of minimum monthly flows                                               40.09836
+   ML15: Mean minimum annual flow/mean annual flow                                0.4225877
 
  G_TABLE "sim_hyd_indx02" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) Sq6500 1954-02-01 to 2007-12-31                      Value
-   MA9: (Q10-Q90)/median daily flow:                                                           1.46365000977551
-   MA18: Mean monthly flow: July:                                                              58.6648710096774
-   MA21: Mean monthly flow: October:                                                           33.2473071806452
-   MA37: IQR mean monthly/median monthly flow:                                                0.644163898463925
-   ML6: Mean minimum monthly flow: June:                                                             35.7977436
-   ML15: Mean minimum annual flow/mean annual flow:                                           0.422587684065136
-   ML16: Median minimum annual flow/median annual flow:                                        0.56660545900502
-   ML22: Mean annual minimum flow divided by catchment area:                                  0.451605206730769
+   Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
+   MA9: (Q10-Q90)/median daily flow                                                1.463650
+   MA18: Mean monthly flow: July                                                   58.66487
+   MA21: Mean monthly flow: October                                                33.24731
+   MA37: IQR mean monthly/median monthly flow                                     0.6441639
+   ML6: Mean minimum monthly flow: June                                            35.79774
+   ML15: Mean minimum annual flow/mean annual flow                                0.4225877
+   ML16: Median minimum annual flow/median annual flow                            0.5666055
+   ML22: Mean annual minimum flow divided by catchment area                       0.4516052
 
  G_TABLE "sim_hyd_indx03" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) Sq6500 1954-02-01 to 2007-12-31                      Value
-   MA29: CV of monthly flow: June:                                                             79.8181412012104
-   MA40: Skewness in monthly flows:                                                           0.166623670231651
-   ML13: CV of minimum monthly flows:                                                          40.0983553960609
-   ML22: Mean annual minimum flow divided by catchment area:                                  0.451605206730769
+   Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
+   MA29: CV of monthly flow: June                                                  79.81814
+   MA40: Skewness in monthly flows                                                0.1666237
+   ML13: CV of minimum monthly flows                                               40.09836
+   ML22: Mean annual minimum flow divided by catchment area                       0.4516052
 
  G_TABLE "sim_hyd_indx04" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) Sq6500 1954-02-01 to 2007-12-31                      Value
-   MA3: CV of all daily flows:                                                                 112.989027669107
-   MA44: (Q10-Q90)[annual]/median annual flow:                                                0.792799213582466
-   ML13: CV of minimum monthly flows:                                                          40.0983553960609
-   ML14: Mean minimum daily flow/mean median annual flow:                                     0.545133954335306
+   Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
+   MA3: CV of all daily flows                                                      107.9288
+   MA44: (Q10-Q90)[annual]/median annual flow                                     0.7927992
+   ML13: CV of minimum monthly flows                                               40.09836
+   ML14: Mean minimum daily flow/mean median annual flow                          0.5451340
 
  G_TABLE "sim_hyd_indx05" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) Sq6500 1954-02-01 to 2007-12-31                      Value
-   MA3: CV of all daily flows:                                                                 112.989027669107
-   MA8: Q25/Q75 for all daily flows:                                                           1.90721829804379
-   MA41: Mean annual runoff:                                                                   1.11533892890886
-   ML14: Mean minimum daily flow/mean median annual flow:                                     0.545133954335306
-   ML16: Median minimum annual flow/median annual flow:                                        0.56660545900502
-   ML18: CV of (7-day minimum flow/mean annual):                                               26.9730136946301
+   Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
+   MA3: CV of all daily flows                                                      107.9288
+   MA8: Q25/Q75 for all daily flows                                                1.907218
+   MA41: Mean annual runoff                                                        1.115339
+   ML14: Mean minimum daily flow/mean median annual flow                          0.5451340
+   ML16: Median minimum annual flow/median annual flow                            0.5666055
+   ML18: CV of (7-day minimum flow/mean annual)                                    26.97301
 
  G_TABLE "sim_hyd_indx06" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) Sq6500 1954-02-01 to 2007-12-31                      Value
-   MA10: (Q20-Q80)/median daily flow:                                                         0.844182679859665
-   MA26: CV of monthly flow: March:                                                            55.1479172091046
-   MA41: Mean annual runoff:                                                                   1.11533892890886
-   ML14: Mean minimum daily flow/mean median annual flow:                                     0.545133954335306
-   ML16: Median minimum annual flow/median annual flow:                                        0.56660545900502
-   ML17: 7-day minimum flow/mean annual flow:                                                 0.441307490967441
+   Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
+   MA10: (Q20-Q80)/median daily flow                                              0.8441827
+   MA26: CV of monthly flow: March                                                 55.14792
+   MA41: Mean annual runoff                                                        1.115339
+   ML14: Mean minimum daily flow/mean median annual flow                          0.5451340
+   ML16: Median minimum annual flow/median annual flow                            0.5666055
+   ML17: 7-day minimum flow/mean annual flow                                      0.4413075
 
  G_TABLE "sim_hyd_indx07" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) Sq6500 1954-02-01 to 2007-12-31                      Value
-   MA3: CV of all daily flows:                                                                 112.989027669107
-   MA5: Mean daily flow/median daily flow:                                                     1.33258125878023
-   MA11: (Q25-Q75)/median daily flow:                                                         0.668496866207352
-   MA41: Mean annual runoff:                                                                   1.11533892890886
-   ML4: Mean minimum monthly flow: April:                                                            31.7176357
-   ML17: 7-day minimum flow/mean annual flow:                                                 0.441307490967441
-   ML18: CV of (7-day minimum flow/mean annual):                                               26.9730136946301
-   ML21: CV of annual minimum flows:                                                            22.435655474164
+   Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
+   MA3: CV of all daily flows                                                      107.9288
+   MA5: Mean daily flow/median daily flow                                          1.332581
+   MA11: (Q25-Q75)/median daily flow                                              0.6684969
+   MA41: Mean annual runoff                                                        1.115339
+   ML4: Mean minimum monthly flow: April                                           31.71764
+   ML17: 7-day minimum flow/mean annual flow                                      0.4413075
+   ML18: CV of (7-day minimum flow/mean annual)                                    26.97301
+   ML21: CV of annual minimum flows                                                22.43566
 
  G_TABLE "sim_hyd_indx08" ---->
-   Hydrologic Index:description (Olden & Poff, 2003) Sq6500 1954-02-01 to 2007-12-31                      Value
-   DH2: Annual maximum of 3-day mean of flow:                                                       374.6625756
-   DL2: Annual minimum of 3-day mean of flow:                                                        19.0752657
-   FH2: CV of high flow pulse count:                                                           21.9942959691286
-   FL2: CV of low flow pulse count:                                                            55.1945703699564
-   MA2: Median of all daily flows:                                                                    34.821704
-   MH2: Mean maximum monthly flow: February:                                                         82.0496598
-   ML2: Mean minimum monthly flow: February:                                                         25.9598278
-   RA2: CV: mean of positive changes from one day to next (rise rate):                          246.93355189317
-   TA2: Predictability of flow:                                                                68.0846400894537
-   TH2: CV: day-of-year of annual maximum:                                                     56.8632965169076
-   TL2: CV: day-of-year of annual minimum:                                                     50.9425468563084
+   Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
+   DH2: Annual maximum of 3-day mean of flow                                       374.6626
+   DL2: Annual minimum of 3-day mean of flow                                       19.07527
+   FH2: CV of high flow pulse count                                                21.99430
+   FL2: CV of low flow pulse count                                                 55.19457
+   MA2: Median of all daily flows                                                  34.82170
+   MH2: Mean maximum monthly flow: February                                        82.04966
+   ML2: Mean minimum monthly flow: February                                        25.95983
+   RA2: CV: mean of positive changes from one day to next (rise rate)              246.9336
+   TA2: Predictability of flow                                                     68.08464
+   TH2: CV: day-of-year of annual maximum                                          56.86330
+   TL2: CV: day-of-year of annual minimum                                          50.94255

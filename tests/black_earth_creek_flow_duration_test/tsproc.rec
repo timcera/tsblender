@@ -1,0 +1,100 @@
+
+Wed Dec 20 2023 22:46: processing information contained in TSPROC input file tsproc.inp....
+
+ Processing SETTINGS block....
+    context all
+    DATE_FORMAT mm/dd/yyyy
+    Processing of SETTINGS block complete.
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/gsflow_sumq_05406500.ssf
+    SITE 05406500
+    NEW_SERIES_NAME sq6500i
+    Reading site sample file ../data/gsflow_sumq_05406500.ssf....
+    Series "sq6500i" successfully imported from file ../data/gsflow_sumq_05406500.ssf
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE ../data/Q_BEC_BE_6500.ssf
+    SITE 05406500
+    NEW_SERIES_NAME oq6500i
+    Reading site sample file ../data/Q_BEC_BE_6500.ssf....
+    Series "oq6500i" successfully imported from file ../data/Q_BEC_BE_6500.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oq6500i
+    NEW_SERIES_NAME oq6500r
+    DATE_1 10/01/1990
+    DATE_2 09/30/2000
+    Series "oq6500r" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oq6500r
+    NEW_SERIES_NAME oq6500
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "oq6500" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sq6500i
+    TB_SERIES_NAME oq6500
+    NEW_SERIES_NAME sq6500
+    New series "sq6500" successfully calculated.
+
+ Processing FLOW_DURATION block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME flow_dur_obs
+
+    Flow duration for time series "oq6500" stored in G_TABLE "flow_dur_obs".
+
+ Processing FLOW_DURATION block....
+    context all
+    SERIES_NAME sq6500
+    NEW_G_TABLE_NAME flow_dur_sim
+
+    Flow duration for time series "sq6500" stored in G_TABLE "flow_dur_sim".
+
+ Processing LIST_OUTPUT block....
+    context all
+    FILE hi_test_flow_duration_obs_output.txt
+    G_TABLE_NAME flow_dur_obs
+    Writing output file hi_test_flow_duration_obs_output.txt....
+    File hi_test_flow_duration_obs_output.txt written ok.
+
+ Processing LIST_OUTPUT block....
+    context all
+    FILE hi_test_flow_duration_sim_output.txt
+    G_TABLE_NAME flow_dur_sim
+    Writing output file hi_test_flow_duration_sim_output.txt....
+    File hi_test_flow_duration_sim_output.txt written ok.
+
+ Processing WRITE_PEST_FILES block....
+    context all
+    NEW_PEST_CONTROL_FILE pest.pst
+    AUTOMATIC_USER_INTERVENTION yes
+    TEMPLATE_FILE par2par_base.tpl
+    MODEL_INPUT_FILE par2par_base.dat
+    NEW_INSTRUCTION_FILE sim_vals_flowdur.ins
+    OBSERVATION_G_TABLE_NAME flow_dur_obs
+    MODEL_G_TABLE_NAME flow_dur_sim
+    G_TABLE_WEIGHTS_EQUATION "1.0"
+    PARAMETER_GROUP_FILE groups.dat
+    PARAMETER_DATA_FILE parameters.dat
+    MODEL_COMMAND_LINE modelcmd.bat
+    Reading parameter group file groups.dat ....
+    - data for 4 parameter groups read from file groups.dat
+    Reading parameter data file parameters.dat ....
+    - data for 6 parameters read from file parameters.dat
+    Reading template file par2par_base.tpl ....
+    - 6 parameter names read from file par2par_base.tpl
+    Writing instruction file sim_vals_flowdur.ins ....
+    - file sim_vals_flowdur.ins written ok.
+    Writing PEST control file pest.pst ....
+    - file pest.pst written ok.
+
+ - no more blocks to process.
