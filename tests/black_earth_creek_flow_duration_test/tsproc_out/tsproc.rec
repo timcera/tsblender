@@ -1,5 +1,5 @@
 
-Wed Dec 20 2023 22:46: processing information contained in TSPROC input file tsproc.inp....
+Wed Jan 03 2024 23:26: processing information contained in TSPROC input file tsproc.inp....
 
  Processing SETTINGS block....
     context all
@@ -69,6 +69,8 @@ Wed Dec 20 2023 22:46: processing information contained in TSPROC input file tsp
  Processing LIST_OUTPUT block....
     context all
     FILE hi_test_flow_duration_sim_output.txt
+    SERIES_FORMAT long
+    SERIES_NAME sq6500
     G_TABLE_NAME flow_dur_sim
     Writing output file hi_test_flow_duration_sim_output.txt....
     File hi_test_flow_duration_sim_output.txt written ok.
@@ -80,9 +82,14 @@ Wed Dec 20 2023 22:46: processing information contained in TSPROC input file tsp
     TEMPLATE_FILE par2par_base.tpl
     MODEL_INPUT_FILE par2par_base.dat
     NEW_INSTRUCTION_FILE sim_vals_flowdur.ins
+    OBSERVATION_SERIES_NAME oq6500
+    MODEL_SERIES_NAME sq6500
+    SERIES_WEIGHTS_EQUATION "1.0/@_abs_value"
+    SERIES_WEIGHTS_MIN_MAX 0.0000000   1.0000000
     OBSERVATION_G_TABLE_NAME flow_dur_obs
     MODEL_G_TABLE_NAME flow_dur_sim
-    G_TABLE_WEIGHTS_EQUATION "1.0"
+    G_TABLE_WEIGHTS_EQUATION "1.0/@_abs_value"
+    G_TABLE_WEIGHTS_MIN_MAX 0.0000000   1.0000000
     PARAMETER_GROUP_FILE groups.dat
     PARAMETER_DATA_FILE parameters.dat
     MODEL_COMMAND_LINE modelcmd.bat

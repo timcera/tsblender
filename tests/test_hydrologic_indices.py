@@ -10,12 +10,12 @@ from tsblender import tsblender
 
 class TestSeriesCompare(unittest.TestCase):
     def setUp(self):
-        os.chdir("tests")
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
         tsblender.run("tsproc_hydrologic_indices.inp")
-        os.chdir("..")
 
     def test_hydrologic_indices_compare(self):
-        with open("tests/data_out__hydrologic_indices.txt") as f:
+        os.chdir(os.path.dirname(os.path.abspath(__file__)))
+        with open("data_out__hydrologic_indices.txt") as f:
             text = "\n".join([line for line in f if line[:3] == "   "])
 
         tsblender_series = pd.read_csv(
@@ -33,7 +33,7 @@ class TestSeriesCompare(unittest.TestCase):
         ]
         print(tsblender_series)
 
-        with open("tests/tsproc_out/data_out__hydrologic_indices.txt") as f:
+        with open("tsproc_out/data_out__hydrologic_indices.txt") as f:
             text = "\n".join([line for line in f if line[:3] == "   "])
 
         tsproc_series = pd.read_csv(

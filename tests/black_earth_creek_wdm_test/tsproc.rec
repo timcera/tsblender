@@ -1,5 +1,5 @@
 
-Sun Dec 24 2023 13:15: processing information contained in TSPROC input file tsproc.inp....
+Fri Jan 05 2024 21:34: processing information contained in TSPROC input file tsproc.inp....
 
  Processing SETTINGS block....
     context pest_input
@@ -93,5 +93,14 @@ Sun Dec 24 2023 13:15: processing information contained in TSPROC input file tsp
     FLOW_COMPONENT low_flow_magnitude
 
     Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx".
+
+ Processing LIST_OUTPUT block....
+    context all
+    FILE bec_hyd_indx.txt
+    G_TABLE_NAME bec_hyd_indx
+    SERIES_FORMAT long
+    SERIES_NAME bsq6500
+    Writing output file bec_hyd_indx.txt....
+    File bec_hyd_indx.txt written ok.
 
  - no more blocks to process.

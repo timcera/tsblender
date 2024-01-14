@@ -2,8 +2,8 @@
 
 import datetime
 import os.path
+import re
 import sys
-import warnings
 from collections import OrderedDict
 from contextlib import suppress
 from typing import Literal, Optional, Union
@@ -11,7 +11,6 @@ from typing import Literal, Optional, Union
 import cltoolbox
 import numpy as np
 import pandas as pd
-import pyemu
 from dateutil.parser import parse
 from fortranformat import FortranRecordWriter
 from hydrotoolbox import hydrotoolbox
@@ -21,8 +20,11 @@ from numpy import abs
 from numpy import arccos as acos
 from numpy import arcsin as asin
 from numpy import arctan as atan
-from numpy import cos, cosh, exp, log, log10, sin, sinh, sqrt, tan, tanh
+from numpy import cos, cosh, exp, isin, log, log10, sin, sinh, sqrt, tan, tanh
 from plottoolbox import plottoolbox
+from pydantic import Field
+from pytest import param
+from typing_extensions import Annotated
 
 try:
     from pydantic import validate_call
@@ -35,8 +37,6 @@ from toolbox_utils.readers.hbn import hbn_extract as _get_series_hbn
 from toolbox_utils.readers.plotgen import plotgen_extract as _get_series_pgen
 from toolbox_utils.readers.wdm import wdm_extract as _get_series_wdm
 from tstoolbox.functions.gof import gof
-
-warnings.filterwarnings("ignore")
 
 
 def warning(message: str):
@@ -150,20 +150,6 @@ class Tables:
                     "G_TABLE_NAME": None,
                 },
                 "f": self.erase_entity,
-            },
-            "EXCEEDENCE_TIME": {
-                "args": [
-                    "CONTEXT",
-                    "SERIES_NAME",
-                    "NEW_E_TABLE_NAME",
-                    "EXCEEDENCE_TIME_UNITS",
-                ],
-                "kwds": {
-                    "UNDER_OVER": "over",
-                    "FLOW": None,
-                    "DELAY": None,
-                },
-                "f": self.exceedance_time,
             },
             "EXCEEDANCE_TIME": {
                 "args": [
@@ -471,13 +457,13 @@ class Tables:
             "LIST_OUTPUT": {
                 "args": ["CONTEXT", "FILE"],
                 "kwds": {
-                    "SERIES_NAME": None,
-                    "SERIES_FORMAT": "long",
-                    "C_TABLE_NAME": None,
-                    "S_TABLE_NAME": None,
-                    "V_TABLE_NAME": None,
-                    "E_TABLE_NAME": None,
-                    "G_TABLE_NAME": None,
+                    "SERIES_FORMAT": "",
+                    "SERIES_NAME": (),
+                    "C_TABLE_NAME": (),
+                    "S_TABLE_NAME": (),
+                    "V_TABLE_NAME": (),
+                    "E_TABLE_NAME": (),
+                    "G_TABLE_NAME": (),
                 },
                 "f": self.list_output,
             },
@@ -709,26 +695,26 @@ class Tables:
                     "MODEL_INPUT_FILE": None,
                     "PARAMETER_DATA_FILE": None,
                     "PARAMETER_GROUP_FILE": None,
-                    "OBSERVATION_SERIES_NAME": None,
-                    "MODEL_SERIES_NAME": None,
-                    "SERIES_WEIGHTS_EQUATION": None,
-                    "SERIES_WEIGHTS_MIN_MAX": None,
-                    "OBSERVATION_S_TABLE_NAME": None,
-                    "MODEL_S_TABLE_NAME": None,
-                    "S_TABLE_WEIGHTS_EQUATION": None,
-                    "S_TABLE_WEIGHTS_MIN_MAX": None,
-                    "OBSERVATION_V_TABLE_NAME": None,
-                    "MODEL_V_TABLE_NAME": None,
-                    "V_TABLE_WEIGHTS_EQUATION": None,
-                    "V_TABLE_WEIGHTS_MIN_MAX": None,
-                    "OBSERVATION_E_TABLE_NAME": None,
-                    "MODEL_E_TABLE_NAME": None,
-                    "E_TABLE_WEIGHTS_EQUATION": None,
-                    "E_TABLE_WEIGHTS_MIN_MAX": None,
-                    "OBSERVATION_G_TABLE_NAME": None,
-                    "MODEL_G_TABLE_NAME": None,
-                    "G_TABLE_WEIGHTS_EQUATION": None,
-                    "G_TABLE_WEIGHTS_MIN_MAX": None,
+                    "OBSERVATION_SERIES_NAME": (),
+                    "MODEL_SERIES_NAME": (),
+                    "SERIES_WEIGHTS_EQUATION": (),
+                    "SERIES_WEIGHTS_MIN_MAX": (),
+                    "OBSERVATION_S_TABLE_NAME": (),
+                    "MODEL_S_TABLE_NAME": (),
+                    "S_TABLE_WEIGHTS_EQUATION": (),
+                    "S_TABLE_WEIGHTS_MIN_MAX": (),
+                    "OBSERVATION_V_TABLE_NAME": (),
+                    "MODEL_V_TABLE_NAME": (),
+                    "V_TABLE_WEIGHTS_EQUATION": (),
+                    "V_TABLE_WEIGHTS_MIN_MAX": (),
+                    "OBSERVATION_E_TABLE_NAME": (),
+                    "MODEL_E_TABLE_NAME": (),
+                    "E_TABLE_WEIGHTS_EQUATION": (),
+                    "E_TABLE_WEIGHTS_MIN_MAX": (),
+                    "OBSERVATION_G_TABLE_NAME": (),
+                    "MODEL_G_TABLE_NAME": (),
+                    "G_TABLE_WEIGHTS_EQUATION": (),
+                    "G_TABLE_WEIGHTS_MIN_MAX": (),
                     "AUTOMATIC_USER_INTERVENTION": "no",
                     "TRUNCATED_SVD": 2.0e-7,
                     "MODEL_COMMAND_LINE": None,
@@ -922,6 +908,22 @@ class Tables:
         ]
         return series
 
+    def _read_file(self, data_file):
+        with open(data_file, encoding="ascii") as fpi:
+            for line_number, line in enumerate(fpi):
+                nline = line.strip()
+
+                # Handle comment lines and partial comment lines.  Everything from
+                # a "#" to the end of the line is a comment.
+                with suppress(ValueError):
+                    nline = nline[: nline.index("#")].rstrip()
+
+                # Handle blank lines.
+                if not nline:
+                    continue
+
+                yield nline, line_number
+
     @validate_call
     def digital_filter(
         self,
@@ -967,65 +969,84 @@ class Tables:
     def copy(
         self,
         new_entity_name: str,
-        series_name: Optional[str] = None,
-        v_table_name: Optional[str] = None,
-        c_table_name: Optional[str] = None,
-        s_table_name: Optional[str] = None,
-        e_table_name: Optional[str] = None,
-        g_table_name: Optional[str] = None,
+        series_name: str = "",
+        v_table_name: str = "",
+        c_table_name: str = "",
+        s_table_name: str = "",
+        e_table_name: str = "",
+        g_table_name: str = "",
         overwrite: Union[bool, Literal["yes", "no"]] = False,
     ):
         """Copy an entity."""
         overwrite = self._normalize_bools(overwrite)
 
-        if series_name is not None:
+        cnt = 0
+
+        if series_name:
+            cnt += 1
             series = self._get_series(series_name)
             if overwrite:
                 self.erase_entity(series_name=new_entity_name.upper())
             self._join(new_entity_name, series=series)
 
-        elif v_table_name is not None:
+        if v_table_name:
+            cnt += 1
             v_table = self._get_v_table(v_table_name)
             if overwrite:
                 self.erase_entity(v_table_name=new_entity_name.upper())
             self._join(new_entity_name, v_table=v_table)
 
-        elif c_table_name is not None:
+        if c_table_name:
+            cnt += 1
             c_table = self._get_c_table(c_table_name)
             if overwrite:
                 self.erase_entity(c_table_name=new_entity_name.upper())
             self._join(new_entity_name, c_table=c_table)
 
-        elif s_table_name is not None:
+        if s_table_name:
+            cnt += 1
             s_table = self._get_s_table(s_table_name)
             if overwrite:
                 self.erase_entity(s_table_name=new_entity_name.upper())
             self._join(new_entity_name, s_table=s_table)
 
-        elif e_table_name is not None:
+        if e_table_name:
+            cnt += 1
             e_table = self._get_e_table(e_table_name)
             if overwrite:
                 self.erase_entity(e_table_name=new_entity_name.upper())
             self._join(new_entity_name, e_table=e_table)
 
-        elif g_table_name is not None:
+        if g_table_name:
+            cnt += 1
             g_table = self._get_g_table(g_table_name)
             if overwrite:
                 self.erase_entity(g_table_name=new_entity_name.upper())
             self._join(new_entity_name, g_table=g_table)
 
+        if cnt != 1:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    """
+                    Exactly one of the following must be specified:
+                    'series_name', 'v_table_name', 'c_table_name', 's_table_name',
+                    'e_table_name', 'g_table_name'
+                    """
+                )
+            )
+
     @validate_call
     def erase_entity(
         self,
-        series_name: Optional[str] = None,
-        v_table_name: Optional[str] = None,
-        c_table_name: Optional[str] = None,
-        s_table_name: Optional[str] = None,
-        e_table_name: Optional[str] = None,
-        g_table_name: Optional[str] = None,
+        series_name: str = "",
+        v_table_name: str = "",
+        c_table_name: str = "",
+        s_table_name: str = "",
+        e_table_name: str = "",
+        g_table_name: str = "",
     ):
         """Erase a column in a series, or *_table."""
-        if series_name is not None:
+        if series_name:
             series = series_name.upper()
             self.series[self.current_series[series]] = self.series[
                 self.current_series[series]
@@ -1033,26 +1054,26 @@ class Tables:
             del self.current_series[series]
             del self.series_dates[series]
 
-        if v_table_name is not None:
+        if v_table_name:
             self.v_table = self.v_table.drop(v_table_name.upper(), axis="columns")
             del self.v_table_metadata[v_table_name.upper()]
 
-        if c_table_name is not None:
+        if c_table_name:
             self.c_table = self.c_table.drop(c_table_name.upper(), axis="columns")
             del self.c_table_metadata[c_table_name.upper()]
 
-        if s_table_name is not None:
+        if s_table_name:
             self.s_table = self.s_table.drop(s_table_name.upper(), axis="columns")
             del self.s_table_metadata[s_table_name.upper()]
 
-        if e_table_name is not None:
+        if e_table_name:
             self.e_table = self.e_table.drop(e_table_name.upper(), axis="columns")
             self.e_table_tot = self.e_table_tot.drop(
                 e_table_name.upper(), axis="columns"
             )
             del self.e_table_metadata[e_table_name.upper()]
 
-        if g_table_name is not None:
+        if g_table_name:
             self.g_table = self.g_table.drop(g_table_name.upper(), axis="columns")
             del self.g_table_metadata[g_table_name.upper()]
 
@@ -1144,7 +1165,7 @@ class Tables:
 
         # Create and join the new e_table_tot for LIST_OUTPUT.
         e_table_tot = pd.DataFrame(e_totv, index=keys)
-        e_table_tot.columns = [new_e_table_name.upper()]
+        e_table_tot.columns = pd.Index([new_e_table_name.upper()])
         self._join(new_e_table_name, e_table_tot=e_table_tot)
 
         # This is here only to be able to include the time units in the
@@ -1159,8 +1180,7 @@ class Tables:
     def flow_duration(
         self,
         series_name: str,
-        new_g_table_name: Optional[str] = None,
-        new_table_name: Optional[str] = None,
+        new_g_table_name: str,
         exceedance_probabilities=(99.5, 99, 98, 95, 90, 75, 50, 25, 10, 5, 2, 1, 0.5),
         date_1=None,
         time_1=None,
@@ -1168,12 +1188,6 @@ class Tables:
         time_2=None,
     ):
         """Calculate the flow duration curve for a time series."""
-        self._there_can_be_only_one(
-            [new_g_table_name, new_table_name], '"new_g_table_name" or "new_table_name"'
-        )
-
-        new_g_table_name = new_g_table_name or new_table_name
-
         series = self._prepare_series(
             series_name,
             date_1=date_1,
@@ -1202,7 +1216,7 @@ class Tables:
         self,
         file: str,
         new_series_name: str,
-        usecol: Union[int, str] = None,
+        usecol: Optional[Union[int, str]] = None,
         date_1: Optional[str] = None,
         time_1: Optional[str] = None,
         date_2: Optional[str] = None,
@@ -1226,7 +1240,7 @@ class Tables:
         new_series_name: str,
         model_reference_date: str,
         model_reference_time: str,
-        time_units_per_day: int = 1,
+        time_units_per_day: Annotated[int, Field(gt=0)] = 1,
         date_1: Optional[str] = None,
         time_1: Optional[str] = None,
         date_2: Optional[str] = None,
@@ -1366,7 +1380,7 @@ class Tables:
         new_series_name: str,
         interval: Literal["yearly", "monthly", "daily", "bivl"],
         operationtype: Literal["PERLND", "IMPLND", "RCHRES", "BMPRAC"],
-        id: int,
+        id: Annotated[int, Field(gt=0, lt=1000)],
         variable: str,
         date_1: Optional[str] = None,
         time_1: Optional[str] = None,
@@ -1560,7 +1574,7 @@ class Tables:
         self,
         file: str,
         new_series_name: str,
-        dsn: int,
+        dsn: Annotated[int, Field(gt=0, le=32000)] = 1,
         date_1: Optional[str] = None,
         time_1: Optional[str] = None,
         date_2: Optional[str] = None,
@@ -1696,10 +1710,10 @@ class Tables:
         self,
         series_name: str,
         new_series_name: str,
-        rise_lag: int,
-        fall_lag: int,
-        window: int = 1,
-        min_peak: float = 0.0,
+        rise_lag: Annotated[int, Field(ge=0)],
+        fall_lag: Annotated[int, Field(ge=0)],
+        window: Annotated[int, Field(ge=1)] = 1,
+        min_peak: Annotated[float, Field(ge=0)] = 0.0,
         date_1: Optional[str] = None,
         time_1: Optional[str] = None,
         date_2: Optional[str] = None,
@@ -1724,8 +1738,8 @@ class Tables:
         self,
         series_name: str,
         new_series_name: str,
-        window: int = 1,
-        min_peak: float = 0.0,
+        window: Annotated[int, Field(ge=0)] = 1,
+        min_peak: Annotated[float, Field(ge=0)] = 0.0,
         date_1: Optional[str] = None,
         time_1: Optional[str] = None,
         date_2: Optional[str] = None,
@@ -1749,13 +1763,13 @@ class Tables:
     def list_output(
         self,
         file,
-        series_name=None,
-        series_format="long",
-        s_table_name=None,
-        c_table_name=None,
-        v_table_name=None,
-        e_table_name=None,
-        g_table_name=None,
+        series_format: Literal["long", "short", "ssf"] = "",
+        series_name=(),
+        s_table_name=(),
+        c_table_name=(),
+        v_table_name=(),
+        e_table_name=(),
+        g_table_name=(),
         _ins_file="",
     ):
         """
@@ -1778,28 +1792,25 @@ class Tables:
 
         if isinstance(series_name, str):
             series_name = [series_name]
-        elif series_name is None:
-            series_name = []
         if isinstance(s_table_name, str):
             s_table_name = [s_table_name]
-        elif s_table_name is None:
-            s_table_name = []
         if isinstance(c_table_name, str):
             c_table_name = [c_table_name]
-        elif c_table_name is None:
-            c_table_name = []
         if isinstance(v_table_name, str):
             v_table_name = [v_table_name]
-        elif v_table_name is None:
-            v_table_name = []
         if isinstance(e_table_name, str):
             e_table_name = [e_table_name]
-        elif e_table_name is None:
-            e_table_name = []
         if isinstance(g_table_name, str):
             g_table_name = [g_table_name]
-        elif g_table_name is None:
-            g_table_name = []
+
+        if series_name and not series_format:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    """
+                    When listing series, the series_format must be specified.
+                    """
+                )
+            )
 
         self.ofile = _ins_file or file
 
@@ -1822,21 +1833,11 @@ class Tables:
             "g_table_row": FortranRecordWriter(r"(t4, a, t82, g14.7, /)"),
         }
         fortran_format_instructions = {
-            "series_long": FortranRecordWriter(
-                r"('l', a, t6, '[', a, '_', a, ']42:65', /)"
-            ),
-            "series_short": FortranRecordWriter(
-                r"('l', a, t6, '[', a, '_', a, ']2:25', /)"
-            ),
-            "s_table_row": FortranRecordWriter(
-                r"('l', a, t6, '[', a, '_', a, ']51:69', /)"
-            ),
-            "g_table_row": FortranRecordWriter(
-                r"('l', a, t6, '[', a, '_', a, ']82:96', /)"
-            ),
-            "e_table_row": FortranRecordWriter(
-                r"('l', a, t6, '[', a, '_', a, ']59:78', /)"
-            ),
+            "series_long": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']42:65', /)"),
+            "series_short": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']2:25', /)"),
+            "s_table_row": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']51:69', /)"),
+            "g_table_row": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']82:96', /)"),
+            "e_table_row": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']59:78', /)"),
         }
 
         # Time series first
@@ -2074,12 +2075,12 @@ class Tables:
     def move(
         self,
         new_entity_name: str,
-        series_name: Optional[str] = None,
-        v_table_name: Optional[str] = None,
-        c_table_name: Optional[str] = None,
-        s_table_name: Optional[str] = None,
-        e_table_name: Optional[str] = None,
-        g_table_name: Optional[str] = None,
+        series_name: str = "",
+        v_table_name: str = "",
+        c_table_name: str = "",
+        s_table_name: str = "",
+        e_table_name: str = "",
+        g_table_name: str = "",
         overwrite: Union[bool, Literal["yes", "no"]] = False,
     ):
         """Move an entity."""
@@ -2312,6 +2313,26 @@ class Tables:
         self._join(new_series_name, series=series)
 
     @validate_call
+    def index_of_agreement(self, sim, obs, obs_par_b=None, exponent=1):
+        """Calculate the index of agreement."""
+        if obs_par_b is None:
+            obs_par_b = obs.mean()
+        return 1 - (
+            np.sum(abs(obs - sim)) ** exponent
+            / np.sum(np.abs(sim - obs_par_b) + np.abs(obs - obs_par_b)) ** exponent
+        )
+
+    @validate_call
+    def coefficient_of_efficiency(self, sim, obs, obs_par_b=None, exponent=1):
+        """Calculate the coefficient of efficiency."""
+        if obs_par_b is None:
+            obs_par_b = obs.mean()
+        return 1 - (
+            np.sum(abs(obs - sim)) ** exponent
+            / np.sum(abs(obs - obs_par_b)) ** exponent
+        )
+
+    @validate_call
     def series_compare(
         self,
         series_name_sim: str,
@@ -2333,6 +2354,9 @@ class Tables:
         time_2: Optional[str] = None,
     ):
         """Calculate comparison statistics for two time series."""
+        if exponent not in [1, 2]:
+            raise ValueError(f"exponent must be 1 or 2, not {exponent}")
+
         series_sim = self._prepare_series(
             series_name_sim,
             date_1=date_1,
@@ -2355,6 +2379,8 @@ class Tables:
                 date_2=date_2,
                 time_2=time_2,
             )
+        else:
+            series_base = None
 
         c_table = [
             "Bias:",
@@ -2391,19 +2417,14 @@ class Tables:
             stats["Nash-Sutcliffe coefficient:"] = gof(
                 stats="nse", sim_col=series_sim, obs_col=series_obs
             )[0][1]
-        if self._normalize_bools(coefficient_of_efficiency) and exponent in {2, 1}:
-            stats["Coefficient of efficiency:"] = gof(
-                stats="lm_index", sim_col=series_sim, obs_col=series_obs
-            )[0][1]
+        if self._normalize_bools(coefficient_of_efficiency):
+            stats["Coefficient of efficiency:"] = self.coefficient_of_efficiency(
+                series_sim, series_obs, obs_par_b=series_base, exponent=exponent
+            )
         if self._normalize_bools(index_of_agreement):
-            if exponent == 2:
-                stats["Index of agreement:"] = gof(
-                    stats="d", sim_col=series_sim, obs_col=series_obs
-                )[0][1]
-            elif exponent == 1:
-                stats["Index of agreement:"] = gof(
-                    stats="d1", sim_col=series_sim, obs_col=series_obs
-                )[0][1]
+            stats["Index of agreement:"] = self.index_of_agreement(
+                series_sim, series_obs, obs_par_b=series_base, exponent=exponent
+            )
         if self._normalize_bools(volumetric_efficiency):
             stats["Volumetric efficiency:"] = gof(
                 stats="ve", sim_col=series_sim, obs_col=series_obs
@@ -2445,20 +2466,63 @@ class Tables:
         series[-lag_increment:] = fill_value  # Verify what TSPROC does.
         self._join(new_series_name, series=series)
 
-    @validate_call
-    def series_equation(
+    def _series_equation(
         self,
-        new_series_name: str,
         equation,
     ):
         """Create a new time series from an equation."""
         if isinstance(equation, list):
             equation = "".join(equation)
         equation = equation.strip().lower()
+
+        # series
         keys = sorted(self.current_series.keys(), key=len, reverse=True)
+        series_in_equation = ""
         for i in keys:
             equation = equation.replace(i.lower(), f"self._get_series('{i.upper()}')")
-        series = eval(equation)
+            if i.upper() in equation:
+                series_in_equation = i.upper()
+
+        # v_table
+        for i in self.v_table.columns:
+            equation = equation.replace(i.lower(), f"self._get_v_table('{i.upper()}')")
+
+        # c_table
+        for i in self.c_table.columns:
+            equation = equation.replace(i.lower(), f"self._get_c_table('{i.upper()}')")
+
+        # s_table
+        for i in self.s_table.columns:
+            equation = equation.replace(i.lower(), f"self._get_s_table('{i.upper()}')")
+
+        # e_table
+        for i in self.e_table.columns:
+            equation = equation.replace(i.lower(), f"self._get_e_table('{i.upper()}')")
+
+        # g_table
+        for i in self.g_table.columns:
+            equation = equation.replace(i.lower(), f"self._get_g_table('{i.upper()}')")
+
+        equation = equation.replace("^", "**")
+        if series_in_equation and "@_days_" in equation:
+            equation = equation.replace(
+                "@_days_start_year",
+                f"self._get_series('{series_in_equation.upper()}').index.dayofyear",
+            )
+            equation = re.sub(
+                "@_days_.(\\d{2}/\\d{2}/\\d{4}_\\d{2}:\\d{2}:\\{2}).",
+                f"(self._get_series('{series_in_equation.upper()}').index.to_julian_date()-pd.Timestamp(r'\1').index.to_julian_date())",
+                equation,
+            )
+        return eval(equation)
+
+    @validate_call
+    def series_equation(
+        self,
+        new_series_name: str,
+        equation,
+    ):
+        series = self._series_equation(equation)
         self._join(new_series_name, series=series)
 
     @validate_call
@@ -2571,7 +2635,10 @@ class Tables:
     ):
         """Create a new time series from a v_table."""
         v_table = self._get_v_table(v_table_name)
-        series = v_table  # FIX!
+        if time_abscissa == "start":
+            series = v_table.set_index("start").drop("end", axis="columns")
+        elif time_abscissa == "end":
+            series = v_table.set_index("end").drop("start", axis="columns")
         self._join(new_series_name, series=series)
 
     @validate_call
@@ -2584,7 +2651,12 @@ class Tables:
         automatic_dates=None,
         factor=1,
     ):
-        """Calculate the volume of a time series."""
+        """Calculate the volume of a time series.
+
+        flow_time_units is the time units of the flow series and is only necessary
+        if running with TSPROC.  For tsblender, it is ignored since the time units
+        are already known because they are in the dataframe.
+        """
         if ((date_file is None) and (automatic_dates is None)) or (
             (date_file is not None) and (automatic_dates is not None)
         ):
@@ -2680,48 +2752,734 @@ class Tables:
 
         self._join(new_series_name, series=series)
 
+    def _write_pest_file_table(
+        self, obs_table_name, mod_table_name, obs_weight, get_function, obs_min_max=""
+    ):
+        observation_data = []
+        if isinstance(obs_table_name, str):
+            obs_table_name = [obs_table_name]
+        if isinstance(mod_table_name, str):
+            mod_table_name = [mod_table_name]
+        if isinstance(obs_weight, str):
+            obs_weight = [obs_weight]
+        if isinstance(obs_min_max, str):
+            obs_min_max = [obs_min_max]
+
+        nobs_min_max = []
+        for min_max in obs_min_max:
+            words = min_max.split() if isinstance(min_max, str) else min_max
+            minval = None
+            maxval = None
+            if len(words) == 2:
+                minval, maxval = (float(i) for i in words)
+                if minval > maxval:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            The minimum value {minval} is greater than the
+                            maximum value {maxval}.
+                            """
+                        )
+                    )
+                minval = max(minval, 0)
+            nobs_min_max.append((minval, maxval))
+
+        for obs, model, weight_equation, min_max in zip(
+            obs_table_name,
+            mod_table_name,
+            obs_weight,
+            nobs_min_max,
+        ):
+            weights = self._series_equation(
+                weight_equation.replace("@_abs_value", f"abs({obs.upper()})")
+            )
+            obsval = get_function(obs)
+            weights_df = obsval.copy()
+            weights_df[:] = weights
+            if min_max:
+                lower, upper = min_max
+            else:
+                lower = 0
+                upper = None
+            weights_df = weights_df.clip(
+                lower=lower,
+                upper=upper,
+            )
+            for index, (val, weight) in enumerate(
+                zip(obsval.dropna(), weights_df.dropna())
+            ):
+                modindex = f"{model.lower()}{index+1}"
+                observation_data.append(
+                    f"{modindex:20} {val:15f} {weight:15f} {model.lower():20}"
+                )
+        return observation_data
+
     @validate_call
     def write_pest_files(
         self,
         new_pest_control_file,
         new_instruction_file,
-        series_name=None,
         template_file=None,
         model_input_file=None,
         parameter_data_file=None,
         parameter_group_file=None,
-        observation_series_name=None,
-        model_series_name=None,
-        series_weights_equation=None,
-        series_weights_min_max=None,
-        observation_s_table_name=None,
-        model_s_table_name=None,
-        s_table_weights_equation=None,
-        s_table_weights_min_max=None,
-        observation_v_table_name=None,
-        model_v_table_name=None,
-        v_table_weights_equation=None,
-        v_table_weights_min_max=None,
-        observation_e_table_name=None,
-        model_e_table_name=None,
-        e_table_weights_equation=None,
-        e_table_weights_min_max=None,
-        observation_g_table_name=None,
-        model_g_table_name=None,
-        g_table_weights_equation=None,
-        g_table_weights_min_max=None,
-        automatic_user_intervention="no",
-        truncated_svd=2.0e-7,
+        observation_series_name=(),
+        model_series_name=(),
+        series_weights_equation=(),
+        series_weights_min_max=(),
+        observation_s_table_name=(),
+        model_s_table_name=(),
+        s_table_weights_equation=(),
+        s_table_weights_min_max=(),
+        observation_v_table_name=(),
+        model_v_table_name=(),
+        v_table_weights_equation=(),
+        v_table_weights_min_max=(),
+        observation_e_table_name=(),
+        model_e_table_name=(),
+        e_table_weights_equation=(),
+        e_table_weights_min_max=(),
+        observation_g_table_name=(),
+        model_g_table_name=(),
+        g_table_weights_equation=(),
+        g_table_weights_min_max=(),
+        automatic_user_intervention=None,
+        truncated_svd=None,
         model_command_line=None,
         **kwds,
     ):
         """Write PEST control file and instruction file."""
         self.last_list_output_parameters["_ins_file"] = new_instruction_file
         self.list_output(**self.last_list_output_parameters)
-        # pst = pyemu.Pst.from_io_files(
-        #     template_file, model_input_file, new_instruction_file, self.ofile
-        # )
-        # pst.write(new_pest_control_file)
+
+        # Automatic user intervention and SVD truncation have to be handled
+        # first because they set different defaults for other keywords.
+        _doaui = kwds.get("doaui", "aui").lower()
+        if _doaui not in ["aui", "auid", "noaui"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "doaui" must be either "aui", "auid", or
+                    "noaui", not "{_doaui}".
+                    """
+                )
+            )
+        if automatic_user_intervention is not None:
+            warning(
+                """
+                The "automatic_user_intervention" keyword is unused and replaced
+                with setting the "doaui" keyword to "aui", "auid", or "noaui".
+                """
+            )
+        if truncated_svd is not None:
+            warning(
+                """
+                The "truncated_svd" keyword is unused and replaced with
+                setting the "eigthresh" keyword to a small positive value.
+                """
+            )
+        eigthresh = kwds.get("eigthresh", 0)
+        if eigthresh > 0 and _doaui in ["aui", "auid"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    """
+                    If the "eigthresh" keyword is set to a positive value,
+                    that activates the truncated SVD option and the "doaui"
+                    keyword must be set to "noaui".
+                    """
+                )
+            )
+
+        template_parameters = set()
+        if isinstance(template_file, str):
+            template_file = [template_file]
+        ntplfle = len(template_file)
+        for tpl in template_file:
+            with open(tpl, encoding="ascii") as fpi:
+                ptf, marker = fpi.readline().split()
+                if ptf != "ptf":
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            The template file "{tpl}" does not start with a
+                            "ptf" instruction.
+                            """
+                        )
+                    )
+                for line in fpi:
+                    for match in re.finditer(f"{marker}(\\w+?){marker}", line):
+                        template_parameters.add(match.group(0))
+
+        parameter_groups = ["", "* parameter groups"]
+
+        npargp = 0
+        parameter_group_names = set()
+        for line, line_number in self._read_file(parameter_group_file):
+            npargp += 1
+            words = line.split()
+            if len(words) == 7:
+                pargpnme, inctyp, derinc, derinclb, forcen, derincmul, dermthd = words
+                splits = ""
+            elif len(words) == 10:
+                (
+                    pargpnme,
+                    inctyp,
+                    derinc,
+                    derinclb,
+                    forcen,
+                    derincmul,
+                    dermthd,
+                    splitthresh,
+                    splitreldiff,
+                    splitaction,
+                ) = words
+                splits = f"{splitthresh:>10} {splitreldiff:>10} {splitaction:>10}"
+            else:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        Line {line_number} of "{parameter_group_file}" has
+                        {len(words)} items.  It must have either 7 or 10 items.
+                        """
+                    )
+                )
+            if pargpnme.lower() in parameter_group_names:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        Line {line_number} of "{parameter_group_file}" has
+                        a duplicate parameter group name "{pargpnme}".
+                        """
+                    )
+                )
+            parameter_group_names.add(pargpnme.lower())
+            inctype = inctyp.lower()
+            if inctype not in ["relative", "absolute", "rel_to_max"]:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        Line {line_number} of "{parameter_group_file}" has
+                        an incorrect type of increment.  It must be either
+                        "relative", "absolute", or "rel_to_max" instead of
+                        "{inctype}".
+                        """
+                    )
+                )
+            derinc = float(derinc)
+            derinclb = float(derinclb)
+            forcen = forcen.lower()
+            if forcen not in ["always_2", "always_3", "always_5", "switch", "switch_5"]:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        Line {line_number} of "{parameter_group_file}" has
+                        an incorrect type of forcing.  It must be either
+                        "always_2", "always_3", "always_5", "switch", or
+                        "switch_5" instead of "{forcen}".
+                        """
+                    )
+                )
+            derincmul = float(derincmul)
+            dermthd = dermthd.lower()
+            if dermthd not in [
+                "parabolic",
+                "best_fit",
+                "outside_pts",
+                "minvar",
+                "maxprec",
+            ]:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        Line {line_number} of "{parameter_group_file}" has
+                        an incorrect type of derivative method.  It must be
+                        either "parabolic", "best_fit", "outside_pts",
+                        "minvar", or "maxprec" instead of "{dermthd}".
+                        """
+                    )
+                )
+            parameter_groups.append(
+                f"{pargpnme:<12} {inctyp:>10} {derinc:>10} {derinclb:>10} {forcen:>10} {derincmul:>10} {dermthd:>11} {splits}"
+            )
+        parameter_groups = "\n".join(parameter_groups)
+
+        parameter_data = ["", "* parameter data"]
+        tied_parameters = OrderedDict()
+        npar = 0
+        nequation = 0
+        equations = []
+        secondary_equations = set()
+        for line, line_number in self._read_file(parameter_data_file):
+            if "=" in line:
+                words = line.split("=")
+                secondary_equations.add(words[0].strip())
+                equations.append(
+                    f"{words[0].strip():<15} = {words[1].replace(' ', '').strip()}"
+                )
+                nequation += 1
+                continue
+            else:
+                npar += 1
+            (
+                parnme,
+                partrans,
+                parchglim,
+                parval1,
+                parlbnd,
+                parubnd,
+                pargp,
+                scale,
+                offset,
+                dercom,
+            ) = line.split()
+            if len(parnme) > 12:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        Line {line_number} of "{parameter_data_file}" has
+                        a parameter name that is longer than 12 characters.
+                        """
+                    )
+                )
+            if parnme.lower() == "none":
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The {npar + 1} parameter name in data file
+                        "{parameter_data_file}" cannot be "none".
+                        """
+                    )
+                )
+            if partrans.lower() not in ["fixed", "tied", "log", "none"]:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The parameter transformation in data file
+                        "{parameter_data_file}" must be either "fixed",
+                        "tied_*", "log", or "none", not "{partrans}".
+                        """
+                    )
+                )
+            if parchglim.lower()[:8] not in ["factor", "relative", "absolute"]:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The {npar + 1} parameter change limit in data file
+                        "{parameter_data_file}" must be either "factor",
+                        "relative", or "absolute(N)", not "{parchglim}".
+                        """
+                    )
+                )
+            if pargp.lower() not in parameter_group_names:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The parameter data file has a parameter group name
+                        "{pargp}" that is not in the parameter group file.
+                        """
+                    )
+                )
+            parval1 = float(parval1)
+            parlbnd = float(parlbnd)
+            parubnd = float(parubnd)
+            if parval1 < parlbnd or parval1 > parubnd:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The {npar + 1} parameter value {parval1} in data file
+                        "{parameter_data_file}" must be between the lower and
+                        upper bounds.
+                        """
+                    )
+                )
+            if partrans.lower()[:4] == "tied":
+                _, tiedto = partrans.split("_")
+                tied_parameters[parnme] = tiedto
+                partrans = "tied"
+
+            parameter_data.append(
+                f"{parnme.lower():<15} {partrans.lower():>10} {parchglim.lower():>15} {parval1:>15f} {parlbnd:>15f} {parubnd:>15f} {pargp:>10} {scale:>10} {offset:>10} {dercom:>10}"
+            )
+
+        control_data_equations = ""
+        if equations:
+            parameter_data.extend(equations)
+            control_data_equations = (
+                f"nparsec={len(secondary_equations)} nequation={nequation}"
+            )
+
+        for parnme, tiedto in tied_parameters.items():
+            parameter_data.append(f"{parnme:<15} {tiedto:>10}")
+
+        # Have to read the series and tables to get the number of observations
+        # and observation groups here even though they are written later.
+
+        nobsgp = 0
+        observation_groups = """
+* observation groups"""
+        for obsgrp_name in [
+            model_series_name,
+            model_s_table_name,
+            model_v_table_name,
+            model_e_table_name,
+            model_g_table_name,
+        ]:
+            if obsgrp_name is not None:
+                if isinstance(obsgrp_name, str):
+                    obsgrp_name = [obsgrp_name]
+                for obsgrp in obsgrp_name:
+                    observation_groups += f"\n{obsgrp.lower()}"
+                    nobsgp += 1
+
+        observation_data = ["", "* observation data"]
+
+        nobs = 0
+        series_data = self._write_pest_file_table(
+            observation_series_name,
+            model_series_name,
+            series_weights_equation,
+            self._get_series,
+            series_weights_min_max,
+        )
+        nobs += len(series_data)
+        observation_data.extend(series_data)
+
+        s_table_data = self._write_pest_file_table(
+            observation_s_table_name,
+            model_s_table_name,
+            s_table_weights_equation,
+            self._get_s_table,
+            s_table_weights_min_max,
+        )
+        nobs += len(s_table_data)
+        observation_data.extend(s_table_data)
+
+        v_table_data = self._write_pest_file_table(
+            observation_v_table_name,
+            model_v_table_name,
+            v_table_weights_equation,
+            self._get_v_table,
+            v_table_weights_min_max,
+        )
+        nobs += len(v_table_data)
+        observation_data.extend(v_table_data)
+
+        e_table_data = self._write_pest_file_table(
+            observation_e_table_name,
+            model_e_table_name,
+            e_table_weights_equation,
+            self._get_e_table,
+            e_table_weights_min_max,
+        )
+        nobs += len(e_table_data)
+        observation_data.extend(e_table_data)
+
+        g_table_data = self._write_pest_file_table(
+            observation_g_table_name,
+            model_g_table_name,
+            g_table_weights_equation,
+            self._get_g_table,
+            g_table_weights_min_max,
+        )
+        nobs += len(g_table_data)
+        observation_data.extend(g_table_data)
+
+        observation_data = "\n".join(observation_data)
+
+        nprior = 0
+
+        # TSPROC has only one instruction file.
+        ninsfle = 1
+
+        # Second line of the control file
+        rstfle = kwds.get("rstfle", "restart").lower()
+        if rstfle not in ["restart", "norestart"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "rstfle" must be either "restart" or
+                    "norestart", not "{rstfle}"
+                    """
+                )
+            )
+        pestmode = kwds.get("pestmode", "estimation").lower()
+        if pestmode not in ["estimation", "pareto", "prediction", "regularization"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "pestmode" must be either "estimation",
+                    "pareto", "prediction", or "regularization", not
+                    "{pestmode}"
+                    """
+                )
+            )
+
+        # Third line of the control file
+        # npar calculated by reading the parameter data file
+        # nobs calculated by reading the series and tables that are part of
+        #     list_output
+        # npargp calculated by reading the parameter group file
+        # nprior read from the parameter data file
+        # nobsgp number of observation groups from the series and tables that
+        #     are part of list_output
+        _maxcompdim = kwds.get("maxcompdim", "")
+        _derzerolim = kwds.get("derzerolim", "")
+
+        # Fourth line of the control file
+        # ntplfle count of template_file entries in write_pest_files
+        # ninsfle count of new_instruction_file entries in write_pest_files
+        precis = kwds.get("precis", "single").lower()
+        if precis not in ["single", "double"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "precis" must be either "single" or
+                    "double", not "{precis}"
+                    """
+                )
+            )
+        dpoint = kwds.get("dpoint", "point").lower()
+        if dpoint not in ["point", "nopoint"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "dpoint" must be either "point" or
+                    "nopoint", not "{dpoint}"
+                    """
+                )
+            )
+        _numcom = kwds.get("numcom", 1)
+        _jacfile = kwds.get("jacfile", 0)
+        _messfile = kwds.get("messfile", 0)
+        _obsreref = kwds.get("obsreref", "noobsreref").lower()
+        if _obsreref not in ["obsreref", "noobsreref"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "obsreref" must be either "obsreref" or
+                    "noobsreref", not "{_obsreref}"
+                    """
+                )
+            )
+
+        # Fifth line of the control file
+        rlambda1 = float(kwds.get("rlambda1", 10.0))
+        rlamfac = (
+            float(kwds.get("rlamfac", -3.0))
+            if eigthresh > 0
+            else float(kwds.get("rlamfac", 2.0))
+        )
+        phiratsuf = float(kwds.get("phiratsuf", 0.3))
+        phiredlam = float(kwds.get("phiredlam", 0.03))
+        numlam = (
+            int(kwds.get("numlam", 1)) if eigthresh > 0 else int(kwds.get("numlam", 10))
+        )
+        _jacupdate = int(kwds.get("jacupdate", 999))
+        _lamforgive = kwds.get("lamforgive", "nolamforgive").lower()
+        if _lamforgive not in ["lamforgive", "nolamforgive"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "lamforgive" must be either "lamforgive" or
+                    "nolamforgive", not "{_lamforgive}"
+                    """
+                )
+            )
+        _derforgive = kwds.get("derforgive", "noderforgive").lower()
+        if _derforgive not in ["derforgive", "noderforgive"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "derforgive" must be either "derforgive" or
+                    "noderforgive", not "{_derforgive}"
+                    """
+                )
+            )
+
+        # Sixth line of the control file
+        relparmax = float(kwds.get("relparmax", 5.0))
+        facparmax = float(kwds.get("facparmax", 5.0))
+        facorig = float(kwds.get("facorig", 1.0e-3))
+        _absparmax = OrderedDict()
+        _absparmax[1] = kwds.get("absparmax_1", None)
+        _absparmax[2] = kwds.get("absparmax_2", None)
+        _absparmax[3] = kwds.get("absparmax_3", None)
+        _absparmax[4] = kwds.get("absparmax_4", None)
+        _absparmax[5] = kwds.get("absparmax_5", None)
+        _absparmax[6] = kwds.get("absparmax_6", None)
+        _absparmax[7] = kwds.get("absparmax_7", None)
+        _absparmax[8] = kwds.get("absparmax_8", None)
+        _absparmax[9] = kwds.get("absparmax_9", None)
+        _absparmax[10] = kwds.get("absparmax_10", None)
+        _absparmax = [
+            f"absparmax({key})={value}" for key, value in _absparmax.items() if value
+        ]
+        _iboundstick = int(kwds.get("iboundstick", 0))
+        _upvecbend = int(kwds.get("upvecbend", 0))
+
+        # Seventh line of the control file
+        phiredswh = float(kwds.get("phiredswh", 0.1))
+        _noptswitch = int(kwds.get("noptswitch", 1))
+        _splitswh = int(kwds.get("splitswh", 0))
+
+        _dosenreuse = kwds.get("dosenreuse", "nosenreuse").lower()
+        if _dosenreuse not in ["senreuse", "nosenreuse"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "dosenreuse" must be either "senreuse" or
+                    "nosenreuse", not "{_dosenreuse}"
+                    """
+                )
+            )
+        _boundscale = kwds.get("boundscale", "boundscale").lower()
+        if _boundscale not in ["boundscale", "noboundscale"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "boundscale" must be either "boundscale" or
+                    "noboundscale", not "{_boundscale}"
+                    """
+                )
+            )
+
+        # Eighth line of the control file
+        noptmax = int(kwds.get("noptmax", 30))
+        phiredstp = float(kwds.get("phiredstp", 0.005))
+        nphistp = int(kwds.get("nphistp", 4))
+        nphinored = int(kwds.get("nphinored", 4))
+        relparstp = float(kwds.get("relparstp", 0.005))
+        nrelpar = int(kwds.get("nrelpar", 4))
+        _phistopthresh = float(kwds.get("phistopthresh", 0))
+        _lastrun = int(kwds.get("lastrun", 1))
+        _phiabandon = float(kwds.get("phiabandon", -1.0))
+
+        # Ninth line of the control file
+        icov = int(kwds.get("icov", 1))
+        icor = int(kwds.get("icor", 1))
+        ieig = int(kwds.get("ieig", 1))
+        _ires = int(kwds.get("ires", 0))
+        _jcosave = kwds.get("jcosave", "jcosave").lower()
+        if _jcosave not in ["jcosave", "nojcosave"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "jcosave" must be either "jcosave" or
+                    "nojcosave", not "{_jcosave}"
+                    """
+                )
+            )
+        _verboserec = kwds.get("verboserec", "verboserec").lower()
+        if _verboserec not in ["verboserec", "noverboserec"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "verboserec" must be either "verboserec" or
+                    "noverboserec", not "{_verboserec}"
+                    """
+                )
+            )
+        _jcosaveitn = kwds.get("jcosaveitn", "nojcosaveitn").lower()
+        if _jcosaveitn not in ["jcosaveitn", "nojcosaveitn"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "jcosaveitn" must be either "jcosaveitn" or
+                    "nojcosaveitn", not "{_jcosaveitn}"
+                    """
+                )
+            )
+        _reisaveitn = kwds.get("reisaveitn", "reisaveitn").lower()
+        if _reisaveitn not in ["reisaveitn", "noreisaveitn"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "reisaveitn" must be either "reisaveitn" or
+                    "noreisaveitn", not "{_reisaveitn}"
+                    """
+                )
+            )
+        _parsaveitn = kwds.get("parsaveitn", "noparsaveitn").lower()
+        if _parsaveitn not in ["parsaveitn", "noparsaveitn"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "parsaveitn" must be either "parsaveitn" or
+                    "noparsaveitn", not "{_parsaveitn}"
+                    """
+                )
+            )
+        _parsaverun = kwds.get("parsaverun", "noparsaverun").lower()
+        if _parsaverun not in ["parsaverun", "noparsaverun"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "parsaverun" must be either "parsaverun" or
+                    "noparsaverun", not "{_parsaverun}"
+                    """
+                )
+            )
+
+        control_data = f"""\
+pcf
+* control data
+{rstfle} {pestmode}
+{npar:>10d} {nobs:>10d} {npargp:>10d} {nprior:>10d} {nobsgp:>10d} {_maxcompdim:>10} {_derzerolim:>10} {control_data_equations}
+{ntplfle:>10d} {ninsfle:>10d} {precis:>10} {dpoint:>10} {_numcom:>10d} {_jacfile:>10d} {_messfile:>10d} {_obsreref:>10}
+{rlambda1:>10f} {rlamfac:>10f} {phiratsuf:>10f} {phiredlam:>10f} {numlam:>10d} {_jacupdate:>10} {_lamforgive:>10} {_derforgive:>10}
+{relparmax:>10f} {facparmax:>10f} {facorig:>10f} {_iboundstick:>10d} {_upvecbend:>10d} {" ".join(_absparmax)}
+{phiredswh:>10f} {_noptswitch:>10d} {_splitswh:>10d} {_doaui:>10} {_dosenreuse:>10} {_boundscale:>10}
+{noptmax:>10d} {phiredstp:>10f} {nphistp:>10d} {nphinored:>10d} {relparstp:>10f} {nrelpar:>10d} {_phistopthresh:>10} {_lastrun:>10} {_phiabandon:>10}
+{icov:>10d} {icor:>10d} {ieig:>10d} {_ires:>10} {_jcosave:>10} {_verboserec:>10} {_jcosaveitn:>10} {_reisaveitn:>10} {_parsaveitn:>10} {_parsaverun:>10}"""
+
+        svdmode = int(kwds.get("svdmode", 1))
+        maxsing = int(kwds.get("maxsing", npar))
+        eigwrite = int(kwds.get("eigwrite", 1))
+
+        singular_value_decomposition = f"""
+* singular value decomposition
+{svdmode:>10d}
+{maxsing:>10d} {eigthresh:>15f}
+{eigwrite:>10d}"""
+
+        lsqrmode = int(kwds.get("lsqrmode", 1))
+        lsqr_atol = float(kwds.get("lsqr_atol", 1.0e-4))
+        lsqr_btol = float(kwds.get("lsqr_btol", 1.0e-4))
+        lsqr_conlim = float(kwds.get("lsqr_conlim", 1000))
+        lsqr_itnlim = int(kwds.get("lsqr_itnlim", 4 * npar))
+        lsqrwrite = int(kwds.get("lsqrwrite", 0))
+
+        lsqr = f"""
+* lsqr
+{lsqrmode:>10}
+{lsqr_atol:>10} {lsqr_btol:>10} {lsqr_conlim:>10} {lsqr_itnlim:>10}
+{lsqrwrite:>10}"""
+
+        with open(new_pest_control_file, "w", encoding="ascii") as fpo:
+            fpo.write(control_data)
+            if eigthresh > 0:
+                fpo.write(singular_value_decomposition)
+            fpo.write(lsqr)
+            fpo.write(parameter_groups)
+            fpo.write("\n".join(parameter_data))
+
+            fpo.write(observation_groups)
+
+            fpo.write(observation_data)
+
+            if model_command_line is None:
+                raise ValueError(
+                    warning(
+                        """
+                        The "model_command_line" keyword is required.
+                        """
+                    )
+                )
+            model_command_line = f"""
+* model command line
+{model_command_line}
+"""
+            fpo.write(model_command_line)
 
     def get_blocks(self, seq):
         """Return blocks of lines between "START ..." lines.
@@ -2753,23 +3511,18 @@ class Tables:
         All arguments and keyword names are lower-cased internally.  This allows
         case insensitivity in the keyword value.
         """
+        exceedance_pattern = re.compile(
+            r"(^start  *|^end  *|^ *)exceedence", re.IGNORECASE
+        )
+        new_table_pattern = re.compile(r"^ *(new_table_name)", re.IGNORECASE)
         inblock = False
         data = []
-        for index, line in enumerate(seq):
-            nline = line.strip()
-
-            # Handle comment lines and partial comment lines.  Everything from
-            # a "#" to the end of the line is a comment.
-            with suppress(ValueError):
-                nline = nline[: nline.index("#")].rstrip()
-
-            # Handle blank lines.
-            if not nline:
-                continue
-
+        for line, index in seq:
             # Can't use 'tsutils.make_list(nline, sep=" ")' because need to have
             # number labels that are strings rather than integers.
-            words = nline.split()
+            line = re.sub(exceedance_pattern, r"\1EXCEEDANCE", line)
+            line = re.sub(new_table_pattern, r"NEW_G_TABLE_NAME", line)
+            words = line.split()
             keyword = words[0].lower()
 
             # Test for "START ..." at the beginning of the line, start collecting
@@ -2791,8 +3544,8 @@ class Tables:
                     raise ValueError(
                         tsutils.error_wrapper(
                             f"""
-                            The block name in the END line at line {index+1} does
-                            not match the block name in the START line.
+                            The block name "{words[1]}" in the END line at line {index+1} does
+                            not match the block name "{block_name}" in the START line.
                             """
                         )
                     )
@@ -2802,103 +3555,166 @@ class Tables:
 
     def run(self, infile, running_context=None):
         """Parse a tsproc file."""
+        _not_rollable_duplicate_keywords = {
+            "exceedance_time",
+            "flow_duration",
+            "get_mul_series_gsflow_gage",
+            "get_mul_series_plotgen",
+            "get_mul_series_ssf",
+            "get_mul_series_statvar",
+            "hydrologic_indices",
+            "list_output",
+            "plot",
+            "write_pest_files",
+        }
+        _not_rollable_multiple_entries = {
+            "hydrologic_indices",
+            "series_equation",
+        }
+
         blocks = []
         lnumbers = []
-        with open(infile, encoding="utf-8") as fpi:
-            for index, group_lnumber in enumerate(self.get_blocks(fpi)):
-                group, lnumber = group_lnumber
-                # Unroll the block.
+        for index, (group, lnumber) in enumerate(
+            self.get_blocks(self._read_file(infile))
+        ):
+            # Unroll the block.
 
-                # First find the maximum number of words from each line in the
-                # group and store in "maxl".
-                maxl = 2
-                rollable = True
-                duplicates = False
-                for line in group:
-                    if line[1].lower() == "settings":
-                        break
-                    if line[0].lower() == "end":
-                        continue
-                    if line[1].lower() in (
-                        "exceedance_time",
-                        "exceedence_time",
-                        "flow_duration",
-                        "get_mul_series_gsflow_gage",
-                        "get_mul_series_plotgen",
-                        "get_mul_series_ssf",
-                        "get_mul_series_statvar",
-                        "hydrologic_indices",
-                        "list_output",
-                        "plot",
-                        "series_equation",
-                        "write_pest_files",
-                    ):
-                        rollable = False
-                    if line[1].lower() in (
-                        "exceedance_time",
-                        "exceedence_time",
-                        "get_mul_series_gsflow_gage",
-                        "get_mul_series_plotgen",
-                        "get_mul_series_ssf",
-                        "get_mul_series_statvar",
-                        "hydrologic_indices",
-                        "list_output",
-                        "plot",
-                        "write_pest_files",
-                    ):
-                        duplicates = True
+            # First find the maximum number of words from each line in the
+            # group and store in "maxl".
+            maxl = 2
+            rollable = True
+            duplicates = False
+            wpf = False
+            for line in group:
+                if line[1].lower() == "settings":
+                    break
+                if line[0].lower() == "end":
+                    continue
+                if line[1].lower() in _not_rollable_duplicate_keywords.union(
+                    _not_rollable_multiple_entries
+                ):
+                    rollable = False
+                if line[1].lower() in _not_rollable_duplicate_keywords:
+                    duplicates = True
 
-                    # The following is to guarantee that WRITE_PEST_FILES is
-                    # preceded by a LIST_OUTPUT block.
-                    if line[1].lower() == "list_output":
-                        prev_list_output_index = index
-                    if (
-                        line[1].lower() == "write_pest_files"
-                        and prev_list_output_index != index - 1
-                    ):
-                        raise ValueError(
-                            tsutils.error_wrapper(
-                                """
-                                The "WRITE_PEST_FILES" block must be
-                                immediately preceded by a "LIST_OUTPUT" block.
-                                The "LIST_OUTPUT" block should contain all the
-                                simulated data to be used in the objective
-                                function in the same order as listed in the
-                                "WRITE_PEST_FILES" block.
-                                """
-                            )
+                # The following is to guarantee that WRITE_PEST_FILES is
+                # preceded by a LIST_OUTPUT block.
+                if line[1].lower() == "list_output":
+                    prev_list_output_index = index
+                if (
+                    line[1].lower() == "write_pest_files"
+                    and prev_list_output_index != index - 1
+                ):
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            """
+                            The "WRITE_PEST_FILES" block must be
+                            immediately preceded by a "LIST_OUTPUT" block.
+                            The "LIST_OUTPUT" block should contain all the
+                            simulated data to be used in the objective
+                            function in the same order as listed in the
+                            "WRITE_PEST_FILES" block.
+                            """
                         )
+                    )
 
-                    if len(line) > maxl:
-                        maxl = len(line)
+                if line[1].lower() == "write_pest_files":
+                    wpf = True
 
-                # Use "maxl" loops to create new groups.
-                if rollable is True:
-                    for unrolled in range(1, maxl):
-                        ngroup = []
-                        for line in group[:-1]:
-                            # Take the "line[unrolled]" element if available,
-                            # otherwise take the last element.
-                            try:
-                                ngroup.append([line[0]] + [line[unrolled]])
-                            except IndexError:
-                                ngroup.append([line[0]] + [line[-1]])
-                        blocks.append(ngroup)
-                        lnumbers.append(lnumber)
-                else:
+                if len(line) > maxl:
+                    maxl = len(line)
+
+            # Have to make sure that the "WRITE_PEST_FILES" block has *_weigth_min_max
+            # keywords after every *_equation keyword.
+            if wpf is True:
+                ins_group = list(group)
+                offset = 0
+                for wpf_type in ["series", "s_table", "v_table", "e_table", "g_table"]:
+                    for index in range(len(group)):
+                        if group[index][0] == f"observation_{wpf_type}_name":
+                            if group[index + 1][0] != f"model_{wpf_type}_name":
+                                raise ValueError(
+                                    tsutils.error_wrapper(
+                                        f"""
+                                        The "WRITE_PEST_FILES" block must have a
+                                        "model_{wpf_type}_name" keyword immediately
+                                        after the "observation_{wpf_type}_name"
+                                        keyword.
+                                        """
+                                    )
+                                )
+                            if group[index + 2][0] != f"{wpf_type}_weights_equation":
+                                raise ValueError(
+                                    tsutils.error_wrapper(
+                                        f"""
+                                        The "WRITE_PEST_FILES" block must have a
+                                        "{wpf_type}_weights_equation" keyword immediately
+                                        after the "model_{wpf_type}_name" keyword.
+                                        """
+                                    )
+                                )
+                            if group[index + 3][0] != f"{wpf_type}_weights_min_max":
+                                warning(
+                                    """
+                                        The "WRITE_PEST_FILES" block can have a
+                                        optional "{wpf_type}_weights_min_max minval
+                                        maxval" entry immediately after the
+                                        "{wpf_type}_weights_equation" keyword.
+                                        """
+                                )
+                                ins_group.insert(
+                                    index + 3 + offset,
+                                    [
+                                        f"{wpf_type}_weights_min_max",
+                                        "0",
+                                        f"{sys.float_info.max}",
+                                    ],
+                                )
+                                offset += 1
+                group = ins_group
+
+            # Use "maxl" loops to create new groups.
+            if rollable is True:
+                for unrolled in range(1, maxl):
                     ngroup = []
-                    ordered = OrderedDict()
                     for line in group[:-1]:
-                        if duplicates is True:
-                            if line[0] in ordered.keys():
-                                ordered[line[0]].append(line[1])
-                            else:
-                                ordered[line[0]] = [line[1]]
-                        else:
-                            ngroup.append(line)
-                    ngroup.extend([key] + value for key, value in ordered.items())
+                        # Take the "line[unrolled]" element if available,
+                        # otherwise take the last element.
+                        try:
+                            ngroup.append([line[0]] + [line[unrolled]])
+                        except IndexError:
+                            ngroup.append([line[0]] + [line[-1]])
                     blocks.append(ngroup)
                     lnumbers.append(lnumber)
+            else:
+                ngroup = []
+                ordered = OrderedDict()
+                for line in group[:-1]:
+                    if duplicates is True:
+                        if line[0] in ordered.keys():
+                            ordered[line[0]].append(" ".join(line[1:]))
+                        else:
+                            ordered[line[0]] = [" ".join(line[1:])]
+                    else:
+                        ngroup.append(line)
+                ngroup.extend([key] + value for key, value in ordered.items())
+                blocks.append(ngroup)
+                lnumbers.append(lnumber)
+                if maxl > 2 and ngroup[0][1].lower() not in (
+                    "flow_duration",
+                    "hydrologic_indices",
+                    "series_equation",
+                    "write_pest_files",
+                ):
+                    warning(
+                        f"""
+                        The block "{ngroup[0][1]}" starting at line {lnumber} is
+                        not able to be unrolled because it allows duplicate
+                        keywords. Warning that this block has multiple entries
+                        for at least one of the keywords.  Only the first entry
+                        will be used.
+                        """
+                    )
 
         if running_context is None:
             for block in blocks:
@@ -2909,44 +3725,49 @@ class Tables:
                             break
                     break
 
-        # Current setup forces me to print here with a near duplicate of the
-        # loop below.  I don't like it, but it works.
+        runblocks = []
+        nnumbers = []
         for block, lnum in zip(blocks, lnumbers):
             print("")
+            context = False
             for line in block:
+                if line[0] == "start":
+                    block_name = line[1]
                 if line[0] == "context":
-                    if line[1] == running_context:
-                        print(
-                            f"# RUNNING following block @ line {lnum} because CONTEXT is 'all'."
-                        )
-                    elif line[1] == "all":
+                    context = True
+                    if block_name == "SETTINGS":
+                        print(f"# RUNNING SETTINGS block @ line {lnum}.")
+                    elif line[1] == "all" or line[1] == running_context:
                         print(
                             f"# RUNNING following block @ line {lnum} because CONTEXT '{line[1]}' matches running CONTEXT."
                         )
+                        runblocks.append(block)
+                        nnumbers.append(lnum)
                     else:
                         print(
                             f"# SKIPPING following block @ line {lnum} because CONTEXT '{line[1]}' doesn't match running CONTEXT."
                         )
                     break
+            if context is False:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The block "{block_name}" at line {lnum} does not have a
+                        "context" keyword.
+                        """
+                    )
+                )
             for line in block:
                 if line[0] == "start":
                     block_name = line[1]
                     print(f"START {block_name}")
                 else:
-                    print(f"  {line[0].upper()} {' '.join(line[1:])}")
+                    varl = " ".join(line[1:])
+                    if varl.strip():
+                        print(f"  {line[0].upper()} {varl}")
             print(f"END {block_name}")
 
-        runblocks = []
-        nnumbers = []
-        for block, lnum in zip(blocks, lnumbers):
-            for line in block:
-                if (line[0] == "context" and line[1] == running_context) or line[
-                    1
-                ] == "all":
-                    runblocks.append(block)
-                    nnumbers.append(lnum)
-                    break
-
+        # Run the blocks.
         for block, lnum in zip(runblocks, nnumbers):
             keys = [i[0] for i in block if i[0] != "start"]
             self.line_number = lnum
@@ -2993,24 +3814,17 @@ class Tables:
                 allv[0]: allv[1] if len(allv) == 2 else allv[1:] for allv in block
             }
             kwds.update(parameters)
-            parameters = {
-                key.lower(): val for key, val in kwds.items() if val is not None
-            }
+            parameters = {key.lower(): val for key, val in kwds.items() if val}
             del parameters["start"]
             del parameters["context"]
+
             if os.path.exists("debug_tsblender"):
                 print(
                     f"\nPROCESSING: {self.block_name} @ line number {self.line_number} with arguments {parameters}"
                 )
-            with suppress(KeyError):
-                parameters["exceedance_time_units"] = parameters[
-                    "exceedence_time_units"
-                ]
-                del parameters["exceedence_time_units"]
 
-            if self.block_name == "list_output":
-                self.last_list_output_parameters = parameters
-
+            # Call the function with the args and kwds collected into the
+            # parameters dictionary.
             self.funcs[self.block_name]["f"](**parameters)
 
         if os.path.exists("debug_tsblender"):
@@ -3032,7 +3846,7 @@ class Tables:
 
 
 @cltoolbox.command()
-def run(infile, running_context=None):
+def run(infile, running_context: Optional[str] = None):
     data = Tables()
     data.run(infile, running_context)
 
