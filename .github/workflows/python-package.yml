@@ -39,6 +39,7 @@ jobs:
                   sudo apt-get update
                   sudo apt-get install gdal-bin libgdal-dev proj-bin
                   python -m pip install --upgrade pip
+                  python -m pip install build
                   python -m pip install flake8 pytest pytest-cov pytest-mpl
                   python -m pip install coverage[toml]
                   python -m pip install coveralls
@@ -54,6 +55,18 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
                   COVERALLS_FLAG_NAME: ${{ matrix.test-name }}
                   COVERALLS_PARALLEL: true
+
+            - name: Build source distribution
+              run: |
+                  python3 -m build
+
+            - name: Upload
+              env:
+                  TWINE_USERNAME: __token__
+                  TWINE_PASSWORD: ${{ secrets.PYPI_WDMTOOLBOX_TOKEN }}
+              run: |
+                  python3 -m pip install --upgrade twine
+                  twine upload --verbose --skip-existing dist/*
 
     coveralls:
         name: Indicate completion to coveralls.io
