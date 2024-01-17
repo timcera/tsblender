@@ -1,3 +1,14 @@
+## v103.1.0 (2024-01-16)
+
+### Feat
+
+- added WRITE_PEST_FILES block, tests, and some bug fixes
+- mega commit - apologize to future self
+
+### Fix
+
+- added HYDRO_PEAKS, and placeholders for GET_SERIES_TETRAD and GET_SERIES_UFORE, misc refactors
+
 ## v103.0.2 (2023-08-08)
 
 ## v103.0.1 (2023-07-26)
