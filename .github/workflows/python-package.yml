@@ -56,18 +56,17 @@ jobs:
                   COVERALLS_FLAG_NAME: ${{ matrix.test-name }}
                   COVERALLS_PARALLEL: true
 
-            - name: Install pypa/build
-              run: >-
-                  python3 -m pip install build --user
+            - name: Build source distribution
+              run: |
+                  python3 -m build
 
-            - name: Build a binary wheel and a source tarball
-              run: python3 -m build
-
-            - name: Store the distribution packages
-              uses: actions/upload-artifact@v3
-              with:
-                  name: python-package-distributions
-                  path: dist/
+            - name: Upload
+              env:
+                  TWINE_USERNAME: __token__
+                  TWINE_PASSWORD: ${{ secrets.PYPI_TSBLENDER_TOKEN }}
+              run: |
+                  python3 -m pip install --upgrade twine
+                  twine upload --verbose --skip-existing dist/*
 
     coveralls:
         name: Indicate completion to coveralls.io
