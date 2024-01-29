@@ -1,5 +1,5 @@
 
- E_TABLE "ESq6500" ---->
+ E_TABLE "esq6500" ---->
    Flow           Time delay (days)    Time above (days)   Fraction of time above threshold
    15.00000         0.0000000E+00        3562.184              0.9754062
    18.00000         0.0000000E+00        3430.528              0.9393560
@@ -40,14 +40,14 @@
 
  G_TABLE "obs_hyd_indx04" ---->
    Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
-   MA3: CV of all daily flows                                                      60.30208
+   MA3: CV of all daily flows                                                      63.01037
    MA44: (Q10-Q90)[annual]/median annual flow                                     0.3792031
    ML13: CV of minimum monthly flows                                               26.62055
    ML14: Mean minimum daily flow/mean median annual flow                          0.6693528
 
  G_TABLE "obs_hyd_indx05" ---->
    Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
-   MA3: CV of all daily flows                                                      60.30208
+   MA3: CV of all daily flows                                                      63.01037
    MA8: Q25/Q75 for all daily flows                                                1.533333
    MA41: Mean annual runoff                                                        1.033944
    ML14: Mean minimum daily flow/mean median annual flow                          0.6693528
@@ -65,7 +65,7 @@
 
  G_TABLE "obs_hyd_indx07" ---->
    Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
-   MA3: CV of all daily flows                                                      60.30208
+   MA3: CV of all daily flows                                                      63.01037
    MA5: Mean daily flow/median daily flow                                          1.162458
    MA11: (Q25-Q75)/median daily flow                                              0.4324324
    MA41: Mean annual runoff                                                        1.033944

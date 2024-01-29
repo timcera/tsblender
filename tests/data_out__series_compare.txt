@@ -1,0 +1,16 @@
+
+ C_TABLE "c_series_compare" ---->
+    Observation time series name:                     "oq6500r"
+    Simulation time series name:                      "sq6500"
+    Beginning date of series comparison:              1990-10-01
+    Beginning time of series comparison:              00:00:00
+    Finishing date of series comparison:              2000-09-30
+    Finishing time of series comparison:              00:00:00
+    Number of series terms in this interval:          3653
+    Bias:                                               3.391800
+    Standard error:                                     54.92722
+    Relative bias:                                     7.8858994E-02
+    Nash-Sutcliffe coefficient:                        -2.016691
+    Coefficient of efficiency:                        -0.2153781
+    Index of agreement:                                0.5272637
+    Volumetric efficiency:                             0.5924414

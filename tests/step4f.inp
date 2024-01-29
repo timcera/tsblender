@@ -469,7 +469,7 @@ END GET_MUL_SERIES_STATVAR
 #####################################
 START GET_SERIES_SSF
 CONTEXT all
-FILE SR_lksub145.ssf
+FILE data/SR_lksub145.ssf
 SITE Solrad
 NEW_SERIES_NAME mon_o_orad
 DATE_1 01/01/1800
@@ -483,7 +483,7 @@ END GET_SERIES_SSF
 #####################################
 START GET_SERIES_SSF
 CONTEXT all
-FILE PE_lksub145.ssf
+FILE data/PE_lksub145.ssf
 SITE PotET
 NEW_SERIES_NAME mon_o_pet
 DATE_1 01/01/1800
@@ -829,7 +829,7 @@ END GET_MUL_SERIES_SSF
 ##############################################
 START GET_MUL_SERIES_SSF
 CONTEXT all
-FILE subm_preproc.ssf
+FILE data/subm_preproc.ssf
 DATE_1 01/01/1800
 TIME_1 0:00:00
 DATE_2 12/31/2100

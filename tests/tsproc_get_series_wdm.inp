@@ -6,7 +6,7 @@ END SETTINGS
 
 START GET_SERIES_WDM
   CONTEXT context_1
-  FILE test.wdm
+  FILE data/test.wdm
   DSN 100 101
   NEW_SERIES_NAME flow nflow
 END GET_SERIES_WDM

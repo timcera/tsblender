@@ -33,10 +33,6 @@ except ImportError:
 
 from scipy import signal
 from toolbox_utils import tsutils
-from toolbox_utils.readers.hbn import hbn_extract as _get_series_hbn
-from toolbox_utils.readers.plotgen import plotgen_extract as _get_series_pgen
-from toolbox_utils.readers.wdm import wdm_extract as _get_series_wdm
-from tstoolbox.functions.gof import gof
 
 
 def warning(message: str):
@@ -723,6 +719,28 @@ class Tables:
             },
         }
 
+    from .get_series.get_series_csv import get_series_csv
+    from .get_series.get_series_gsflow_gage import get_series_gsflow_gage
+    from .get_series.get_series_hspfbin import get_series_hspfbin
+    from .get_series.get_series_plotgen import get_series_plotgen
+    from .get_series.get_series_ssf import get_series_ssf
+    from .get_series.get_series_statvar import get_series_statvar
+    from .get_series.get_series_tetrad import get_series_tetrad
+    from .get_series.get_series_ufore_hydro import get_series_ufore_hydro
+    from .get_series.get_series_wdm import get_series_wdm
+    from .get_series.get_series_xlsx import get_series_xlsx
+    from .series.series_base_level import series_base_level
+    from .series.series_clean import series_clean
+    from .series.series_compare import (
+        coefficient_of_efficiency,
+        index_of_agreement,
+        series_compare,
+    )
+    from .series.series_difference import series_difference
+    from .series.series_displace import series_displace
+    from .series.series_equation import _series_equation, series_equation
+    from .series.series_statistics import series_statistics
+
     def _get_c_table(self, c_table_name: str):
         """Get a c_table from the c_table dataframe."""
         return self.c_table[c_table_name.upper()].dropna()
@@ -866,7 +884,7 @@ class Tables:
         self,
         series_name,
         log: bool = False,
-        power: int = 1,
+        power: Annotated[float, Field(gt=0)] = 1,
         date_1=None,
         time_1=None,
         date_2=None,
@@ -1212,416 +1230,6 @@ class Tables:
         }
 
     @validate_call
-    def get_series_csv(
-        self,
-        file: str,
-        new_series_name: str,
-        usecol: Optional[Union[int, str]] = None,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Get a time series from a CSV file."""
-        with suppress(ValueError):
-            usecol = int(usecol)
-        ts = tsutils.common_kwds(
-            f"{file},{usecol}",
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
-        self._join(new_series_name, series=ts)
-
-    @validate_call
-    def get_series_gsflow_gage(
-        self,
-        file: str,
-        data_type: str,
-        new_series_name: str,
-        model_reference_date: str,
-        model_reference_time: str,
-        time_units_per_day: Annotated[int, Field(gt=0)] = 1,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Get a time series from a GSFLOW gage file."""
-        if isinstance(data_type, str):
-            data_type = [data_type]
-        if isinstance(new_series_name, str):
-            new_series_name = [new_series_name]
-        with open(file, encoding="ascii") as f:
-            _ = f.readline()
-            headers = f.readline()
-        headers = headers.replace('"', "").split()
-        headers = headers[1:]
-        headers = [i.upper() for i in headers]
-        ts = pd.read_csv(
-            file,
-            skiprows=2,
-            sep=r"\s+",
-            quoting=3,
-            header=None,
-            names=headers,
-            index_col=0,
-            engine="c",
-        )
-
-        unit = pd.Timedelta(1, "D") / time_units_per_day
-
-        ts.index = (
-            unit * ts.index
-            + pd.to_datetime(f"{model_reference_date} {model_reference_time}")
-        ) - unit
-
-        ts = tsutils.common_kwds(
-            ts,
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
-
-        for dt, nsn in zip(data_type, new_series_name):
-            try:
-                nts = ts[dt.upper()]
-            except KeyError as exc:
-                raise KeyError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The time-series with variable name "{dt.upper()}" is
-                        not available in file "{file}". The available
-                        time-series are {ts.columns}.
-                        """
-                    )
-                ) from exc
-            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
-            self._join(nsn.upper(), series=nts)
-
-    @validate_call
-    def get_series_statvar(
-        self,
-        file: str,
-        variable_name,
-        location_id,
-        new_series_name,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Get a time series from a STATVAR file."""
-        # Of the repeated keywords, make sure if there is a single item that it
-        # is a list.
-        if isinstance(variable_name, str):
-            variable_name = [variable_name]
-        if isinstance(location_id, (int, str)):
-            location_id = [location_id]
-        if isinstance(new_series_name, str):
-            new_series_name = [new_series_name]
-
-        # Need this to calculate "skiprows" in pd.read_csv and "headers" to
-        # later rename the columns to.
-        with open(file, encoding="ascii") as f:
-            num_series = int(f.readline().strip())
-            collect = []
-            for _ in range(num_series):
-                unique_id = f.readline().strip().split()
-                collect.append(unique_id)
-        headers = ["_".join(i) for i in collect]
-
-        # Leave setting the index columns and headers to later since want
-        # pd.read_csv to parse the dates from 6 columns which creates a new
-        # column and messes with the order of the columns.
-        ts = pd.read_csv(
-            file,
-            skiprows=num_series + 1,
-            header=None,
-            sep=r"\s+",
-            parse_dates=[[1, 2, 3, 4, 5, 6]],
-            date_parser=lambda x: pd.to_datetime(x, format="%Y %m %d %H %M %S"),
-            engine="c",
-        )
-        ts = ts.set_index("1_2_3_4_5_6")
-        ts = ts.drop(columns=[0])
-        ts.index.name = "Datetime"
-        ts.columns = headers
-
-        # Use tsutils.common_kwds to subset the time period.
-        ts = tsutils.common_kwds(
-            ts,
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
-
-        # Create a new DataFrame for each variable_name, location_id, and
-        # new_series_name and join to the correct global DataFrame.
-        # Update series metadata in self.series_dates.
-        for vn, lid, nsn in zip(variable_name, location_id, new_series_name):
-            try:
-                nts = ts[f"{vn}_{lid}"]
-            except KeyError as exc:
-                raise KeyError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The time-series with variable name "{vn}" and location
-                        ID "{lid}" forms the column name "{vn}_{lid}" and is
-                        not available in file "{file}". The available
-                        time-series are {ts.columns}.
-                        """
-                    )
-                ) from exc
-            self._join(nsn.upper(), series=nts)
-            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
-
-    @validate_call
-    def get_series_hspfbin(
-        self,
-        file: str,
-        new_series_name: str,
-        interval: Literal["yearly", "monthly", "daily", "bivl"],
-        operationtype: Literal["PERLND", "IMPLND", "RCHRES", "BMPRAC"],
-        id: Annotated[int, Field(gt=0, lt=1000)],
-        variable: str,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Get a time series from a HSPF binary file."""
-        ts = _get_series_hbn(
-            file,
-            interval,
-            f"{operationtype},{id},,{variable}",
-        )
-        if len(ts.columns) == 0:
-            raise ValueError(
-                tsutils.error_wrapper(
-                    f"""
-                    No data found in the file when processing the block
-                    {self.block_name} at line number {self.line_number}.
-                    """
-                )
-            )
-        ts = tsutils.common_kwds(
-            ts,
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
-        self._join(new_series_name, series=ts)
-
-    @validate_call
-    def get_series_plotgen(
-        self,
-        file: str,
-        label,
-        new_series_name: str,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Get a time series from a HSPF PLOTGEN file."""
-        if isinstance(label, str):
-            label = [label]
-        if isinstance(new_series_name, str):
-            new_series_name = [new_series_name]
-        ts = _get_series_pgen(file)
-        ts = tsutils.common_kwds(
-            ts,
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
-        for lb, nsn in zip(label, new_series_name):
-            try:
-                nts = ts[lb]
-            except KeyError as exc:
-                raise KeyError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The time-series "{lb}" is not available in file
-                        "{file}". The available time-series are {ts.columns}.
-                        """
-                    )
-                ) from exc
-            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
-            self._join(nsn.upper(), series=nts)
-
-    @validate_call
-    def get_series_ssf(
-        self,
-        file: str,
-        site,
-        new_series_name,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Get a time series from a SSF file."""
-        if isinstance(site, str):
-            site = [site]
-        if isinstance(new_series_name, str):
-            new_series_name = [new_series_name]
-        ts = pd.read_csv(
-            file,
-            header=None,
-            parse_dates=[[1, 2]],
-            index_col=[0],
-            sep=r"\s+",
-            dtype={0: str},
-            engine="c",
-        )
-        try:
-            ts = ts.pivot_table(
-                index=ts.index,
-                values=ts.columns.drop(ts.columns[0]),
-                columns=ts.columns[0],
-                aggfunc="first",
-            )
-        except ValueError as exc:
-            raise ValueError(
-                tsutils.error_wrapper(
-                    f"""
-                    Duplicate index (time stamp and '{ts.columns[0]}') were
-                    found. Found these duplicate indices:
-                    {ts.index.get_duplicates()}
-                    """
-                )
-            ) from exc
-        ts.index.name = "Datetime"
-        ts.columns = [i[1] for i in ts.columns]
-
-        ts = tsutils.common_kwds(
-            ts,
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
-        ts.index = ts.index.to_period(ts.index[1] - ts.index[0]).to_timestamp()
-        for st, nsn in zip(site, new_series_name):
-            try:
-                nts = ts[st]
-            except KeyError as exc:
-                raise KeyError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The time-series "{st}" is not available in file
-                        "{file}". The available time-series are {ts.columns}.
-                        """
-                    )
-                ) from exc
-            self.series_dates[nsn.upper()] = [nts.index[0], nts.index[-1]]
-            self._join(nsn.upper(), series=nts)
-
-    @validate_call
-    def get_series_tetrad(
-        self,
-        file: str,
-        new_series_name: str,
-        well_name: str,
-        object_name: str,
-        model_reference_date: str,
-        model_reference_time: str,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Get a time series from a TETRAD file."""
-        start_date = self._normalize_datetimes(date_1, time_1)
-        end_date = self._normalize_datetimes(date_2, time_2)
-        model_reference_date = self._normalize_datetimes(
-            model_reference_date, model_reference_time
-        )
-
-    @validate_call
-    def get_series_ufore_hydro(
-        self,
-        file: str,
-        new_series_name: str,
-        model_reference_date: str,
-        model_reference_time: str,
-        time_increment: str,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Get a time series from a UFORE hydrology file."""
-        model_reference_date = self._normalize_datetimes(
-            model_reference_date, model_reference_time
-        )
-        time_increment = pd.Timedelta(time_increment)
-
-        with open(file, encoding="ascii") as f:
-            nterm = int(f.readline())
-            ts = [float(f.readline()) for _ in range(nterm)]
-        ts_range = pd.date_range(
-            start=model_reference_date,
-            periods=nterm,
-            freq=time_increment,
-        )
-        ts = pd.DataFrame(ts, index=ts_range)
-
-        ts = tsutils.common_kwds(
-            ts,
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
-        self._join(new_series_name, series=ts)
-
-    @validate_call
-    def get_series_wdm(
-        self,
-        file: str,
-        new_series_name: str,
-        dsn: Annotated[int, Field(gt=0, le=32000)] = 1,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-        def_time="00:00:00",
-        filter: Optional[int] = None,
-    ):
-        """Get a time series from a WDM file."""
-        ts = pd.DataFrame(_get_series_wdm(file, dsn))
-        hh, mm, ss = self._normalize_times(def_time)
-        if hh == 24:
-            delta = pd.Timedelta(days=1, minutes=mm, seconds=ss)
-        else:
-            delta = pd.Timedelta(hours=hh, minutes=mm, seconds=ss)
-        ts.index = ts.index + delta
-        ts = tsutils.common_kwds(
-            ts,
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
-        self._join(new_series_name, series=ts)
-
-    @validate_call
-    def get_series_xlsx(
-        self,
-        new_series_name: str,
-        file: str,
-        sheet: Union[int, str] = 1,
-        column: Union[int, str] = 1,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Get a time series from an Excel file."""
-        ts = tsutils.common_kwds(
-            f"{file},{sheet}",
-            start_date=self._normalize_datetimes(date_1, time_1),
-            end_date=self._normalize_datetimes(date_2, time_2),
-        )
-        try:
-            ts = ts.iloc[:, int(column) - 1]
-        except ValueError:
-            ts = ts.loc[:, column]
-        self._join(new_series_name, series=ts)
-
-    @validate_call
     def hydrologic_indices(
         self,
         series_name: str,
@@ -1666,8 +1274,7 @@ class Tables:
         for key, value in mapper.items():
             if value is None:
                 continue
-            if not isinstance(value, list):
-                value = [value]
+            value = tsutils.make_list(value, sep=" ")
             ind.extend([f"{key}{i}" for i in value])
         if stream_classification is not None:
             ind.extend(
@@ -1956,17 +1563,17 @@ class Tables:
                         )
                     )
 
-            for e_tab in e_table_name:
-                e_tab = self._get_e_table(e_tab)
-                et_tot = self.e_table_tot[e_tab.upper()]
-                etab_meta = self.e_table_metadata[e_tab.upper()]
+            for e_tab_name in e_table_name:
+                e_tab = self._get_e_table(e_tab_name.upper())
+                et_tot = self.e_table_tot[e_tab_name.upper()]
+                etab_meta = self.e_table_metadata[e_tab_name.upper()]
                 units = etab_meta["exceedance_time_units"]
                 direction = {"over": "above", "under": "below"}[etab_meta["under_over"]]
                 fp.write(
                     ""
                     if _ins_file
                     else f"""
- E_TABLE "{e_tab.lower()}" ---->
+ E_TABLE "{e_tab_name.lower()}" ---->
 """
                 )
                 fp.write(
@@ -1980,7 +1587,7 @@ class Tables:
                 for row, (index, value) in enumerate(e_tab.dropna().items(), start=1):
                     fp.write(
                         fortran_format_instructions["e_table_row"].write(
-                            [f"{line_skip}", e_tab.lower(), f"{row}"]
+                            [f"{line_skip}", e_tab_name.lower(), f"{row}"]
                         )
                         if _ins_file
                         else FortranRecordWriter(
@@ -2269,354 +1876,6 @@ class Tables:
             time_2=time_2,
         )
         self._join(new_series_name, series=series)
-
-    @validate_call
-    def series_base_level(
-        self,
-        series_name: str,
-        substitute,
-        new_series_name: str,
-        base_level_series_name: str,
-        base_level_date: str,
-        base_level_time: str,
-        negate: bool = False,
-    ):
-        """Create a new time series with a base level."""
-        series = self._get_series(series_name)
-        base_level = self._get_series(base_level_series_name)
-        base = base_level[pd.to_datetime(f"{base_level_date} {base_level_time}")]
-        series = series - base
-        if self._normalize_bools(negate):
-            series = -series
-        if self._normalize_bools(substitute):
-            new_series_name = series_name
-            self.erase_entity(series_name=new_series_name)
-        self._join(new_series_name, series=series)
-
-    @validate_call
-    def series_clean(
-        self,
-        series_name: str,
-        new_series_name: str,
-        substitute_value: Union[float, Literal["delete"]],
-        lower_erase_boundary: Optional[float] = None,
-        upper_erase_boundary: Optional[float] = None,
-    ):
-        """Clean a time series by replacing/removing values outside of a range."""
-        if substitute_value == "delete":
-            substitute_value = pd.NA
-        series = self._get_series(series_name)
-        if isinstance(lower_erase_boundary, (int, float)):
-            series[series >= lower_erase_boundary] = substitute_value
-        if isinstance(upper_erase_boundary, (int, float)):
-            series[series <= upper_erase_boundary] = substitute_value
-        self._join(new_series_name, series=series)
-
-    @validate_call
-    def index_of_agreement(self, sim, obs, obs_par_b=None, exponent=1):
-        """Calculate the index of agreement."""
-        if obs_par_b is None:
-            obs_par_b = obs.mean()
-        return 1 - (
-            np.sum(abs(obs - sim)) ** exponent
-            / np.sum(np.abs(sim - obs_par_b) + np.abs(obs - obs_par_b)) ** exponent
-        )
-
-    @validate_call
-    def coefficient_of_efficiency(self, sim, obs, obs_par_b=None, exponent=1):
-        """Calculate the coefficient of efficiency."""
-        if obs_par_b is None:
-            obs_par_b = obs.mean()
-        return 1 - (
-            np.sum(abs(obs - sim)) ** exponent
-            / np.sum(abs(obs - obs_par_b)) ** exponent
-        )
-
-    @validate_call
-    def series_compare(
-        self,
-        series_name_sim: str,
-        series_name_obs: str,
-        new_c_table_name: str,
-        bias: bool = False,
-        standard_error: bool = False,
-        relative_bias: bool = False,
-        relative_standard_error: bool = False,
-        nash_sutcliffe: bool = False,
-        coefficient_of_efficiency: bool = False,
-        index_of_agreement: bool = False,
-        volumetric_efficiency: bool = False,
-        exponent: int = 2,
-        series_name_base: str = "",
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-    ):
-        """Calculate comparison statistics for two time series."""
-        if exponent not in [1, 2]:
-            raise ValueError(f"exponent must be 1 or 2, not {exponent}")
-
-        series_sim = self._prepare_series(
-            series_name_sim,
-            date_1=date_1,
-            time_1=time_1,
-            date_2=date_2,
-            time_2=time_2,
-        )
-        series_obs = self._prepare_series(
-            series_name_obs,
-            date_1=date_1,
-            time_1=time_1,
-            date_2=date_2,
-            time_2=time_2,
-        )
-        if series_name_base:
-            series_base = self._prepare_series(
-                series_name_base,
-                date_1=date_1,
-                time_1=time_1,
-                date_2=date_2,
-                time_2=time_2,
-            )
-        else:
-            series_base = None
-
-        c_table = [
-            "Bias:",
-            "Standard error:",
-            "Relative bias:",
-            "Relative standard error:",
-            "Nash-Sutcliffe coefficient:",
-            "Coefficient of efficiency:",
-            "Index of agreement:",
-            "Volumetric efficiency:",
-        ]
-
-        c_table = pd.DataFrame(data=[pd.NA] * len(c_table), index=c_table)
-
-        stats = {}
-        if self._normalize_bools(bias):
-            stats["Bias:"] = gof(stats="me", sim_col=series_sim, obs_col=series_obs)[0][
-                1
-            ]
-        if self._normalize_bools(standard_error):
-            stats["Standard error:"] = gof(
-                stats="rmse", sim_col=series_sim, obs_col=series_obs
-            )[0][1]
-        if self._normalize_bools(relative_bias):
-            stats["Relative bias:"] = (
-                gof(stats="me", sim_col=series_sim, obs_col=series_obs)[0][1]
-                / series_obs.mean()
-            )
-        if self._normalize_bools(relative_standard_error):
-            stats["Relative standard error:"] = gof(
-                stats="nrmse_mean", sim_col=series_sim, obs_col=series_obs
-            )[0][1]
-        if self._normalize_bools(nash_sutcliffe):
-            stats["Nash-Sutcliffe coefficient:"] = gof(
-                stats="nse", sim_col=series_sim, obs_col=series_obs
-            )[0][1]
-        if self._normalize_bools(coefficient_of_efficiency):
-            stats["Coefficient of efficiency:"] = self.coefficient_of_efficiency(
-                series_sim, series_obs, obs_par_b=series_base, exponent=exponent
-            )
-        if self._normalize_bools(index_of_agreement):
-            stats["Index of agreement:"] = self.index_of_agreement(
-                series_sim, series_obs, obs_par_b=series_base, exponent=exponent
-            )
-        if self._normalize_bools(volumetric_efficiency):
-            stats["Volumetric efficiency:"] = gof(
-                stats="ve", sim_col=series_sim, obs_col=series_obs
-            )[0][1]
-
-        nc_table = pd.DataFrame.from_dict(stats, orient="index")
-
-        self._join(new_c_table_name, c_table=nc_table)
-        self.c_table_metadata[new_c_table_name.upper()] = {
-            "sim_name": series_name_sim,
-            "obs_name": series_name_obs,
-            "start_date": series_sim.index[0],
-            "end_date": series_sim.index[-1],
-            "num_terms": min(len(series_sim), len(series_obs)),
-        }
-
-    @validate_call
-    def series_difference(
-        self,
-        series_name: str,
-        new_series_name: str,
-    ):
-        """Calculate the difference between two time series."""
-        series = self._get_series(series_name)
-        series = series.diff()
-        self._join(new_series_name, series=series)
-
-    @validate_call
-    def series_displace(
-        self,
-        series_name,
-        new_series_name,
-        lag_increment: int,
-        fill_value,
-    ):
-        """Displace a time series by a given lag."""
-        series = self._get_series(series_name)
-        series = series.shift(lag_increment)
-        series[-lag_increment:] = fill_value  # Verify what TSPROC does.
-        self._join(new_series_name, series=series)
-
-    def _series_equation(
-        self,
-        equation,
-    ):
-        """Create a new time series from an equation."""
-        if isinstance(equation, list):
-            equation = "".join(equation)
-        equation = equation.strip().lower()
-
-        # series
-        keys = sorted(self.current_series.keys(), key=len, reverse=True)
-        series_in_equation = ""
-        for i in keys:
-            equation = equation.replace(i.lower(), f"self._get_series('{i.upper()}')")
-            if i.upper() in equation:
-                series_in_equation = i.upper()
-
-        # v_table
-        for i in self.v_table.columns:
-            equation = equation.replace(i.lower(), f"self._get_v_table('{i.upper()}')")
-
-        # c_table
-        for i in self.c_table.columns:
-            equation = equation.replace(i.lower(), f"self._get_c_table('{i.upper()}')")
-
-        # s_table
-        for i in self.s_table.columns:
-            equation = equation.replace(i.lower(), f"self._get_s_table('{i.upper()}')")
-
-        # e_table
-        for i in self.e_table.columns:
-            equation = equation.replace(i.lower(), f"self._get_e_table('{i.upper()}')")
-
-        # g_table
-        for i in self.g_table.columns:
-            equation = equation.replace(i.lower(), f"self._get_g_table('{i.upper()}')")
-
-        equation = equation.replace("^", "**")
-        if series_in_equation and "@_days_" in equation:
-            equation = equation.replace(
-                "@_days_start_year",
-                f"self._get_series('{series_in_equation.upper()}').index.dayofyear",
-            )
-            equation = re.sub(
-                "@_days_.(\\d{2}/\\d{2}/\\d{4}_\\d{2}:\\d{2}:\\{2}).",
-                f"(self._get_series('{series_in_equation.upper()}').index.to_julian_date()-pd.Timestamp(r'\1').index.to_julian_date())",
-                equation,
-            )
-        return eval(equation)
-
-    @validate_call
-    def series_equation(
-        self,
-        new_series_name: str,
-        equation,
-    ):
-        series = self._series_equation(equation)
-        self._join(new_series_name, series=series)
-
-    @validate_call
-    def series_statistics(
-        self,
-        series_name: str,
-        new_s_table_name: str,
-        sum=False,
-        mean=False,
-        median=False,
-        std_dev=False,
-        maximum=False,
-        minimum=False,
-        range=False,
-        log=False,
-        power: float = 1,
-        date_1: Optional[str] = None,
-        time_1: Optional[str] = None,
-        date_2: Optional[str] = None,
-        time_2: Optional[str] = None,
-        **minmaxmeans,
-    ):
-        """Calculate statistics for a time series."""
-        log = self._normalize_bools(log)
-        series = self._prepare_series(
-            series_name,
-            log=log,
-            power=power,
-            date_1=date_1,
-            time_1=time_1,
-            date_2=date_2,
-            time_2=time_2,
-            **minmaxmeans,
-        )
-
-        rows = [
-            "sum",
-            "mean",
-            "median",
-            "std_dev",
-            "maximum",
-            "minimum",
-            "range",
-        ]
-        minmaxmeans = {
-            key: self._normalize_bools(value)
-            for key, value in minmaxmeans.items()
-            if value
-        }
-        rows.extend(iter(minmaxmeans))
-        s_table = pd.DataFrame([pd.NA] * len(rows), index=rows)
-
-        if self._normalize_bools(sum):
-            s_table.loc["sum", :] = series.sum()
-        if self._normalize_bools(mean):
-            s_table.loc["mean", :] = series.mean()
-        if self._normalize_bools(median):
-            s_table.loc["median", :] = series.median()
-        if self._normalize_bools(std_dev):
-            s_table.loc["std_dev", :] = series.std()
-        if self._normalize_bools(maximum):
-            s_table.loc["maximum", :] = series.max()
-        if self._normalize_bools(minimum):
-            s_table.loc["minimum", :] = series.min()
-        if self._normalize_bools(range):
-            s_table.loc["range", :] = series.max() - series.min()
-        for key, value in minmaxmeans.items():
-            if "minmean" not in key and "maxmean" not in key:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The key '{key}' is not valid. It must be either
-                        "minmean" or "maxmean"
-                        """
-                    )
-                )
-            stat, interval = key.split("_")
-            interval = int(interval)
-            if value:
-                grouped = series.groupby(
-                    np.arange(len(series.index)) // interval
-                ).mean()
-                if "max" in stat:
-                    s_table.loc[key, :] = grouped.max()
-                if "min" in stat:
-                    s_table.loc[key, :] = grouped.min()
-        self._join(new_s_table_name, s_table=s_table)
-        self.s_table_metadata[new_s_table_name.upper()] = {
-            "source_name": series_name,
-            "start_date": series.index[0],
-            "end_date": series.index[-1],
-            "log_transformed": log,
-            "exponent": power,
-        }
 
     def settings(self, date_format="%Y-%m-%d"):
         """Set the date format for the output."""
