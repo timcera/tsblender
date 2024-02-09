@@ -1,3 +1,9 @@
+## v103.1.1 (2024-02-08)
+
+### Refactor
+
+- moved several functions out of the class to separate files
+
 ## v103.1.0 (2024-01-16)
 
 ### Feat
