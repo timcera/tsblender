@@ -34,23 +34,38 @@ The tsblender is a pure python re-write of the Time Series PROCessor (TSPROC).
 When finished it will be a superset of TSPROC functionality and a more robust
 and flexible tool for time series analysis.
 
-This is not complete and is still under development.
+The tsblender is almost a drop-in replacement for TSPROC.  It is currently
+a super-set of TSPROC functionality, while missing only the DIGITAL_FILTER and
+MOVING_MINIMUM processing blocks.  Existing TSPROC control and input files can
+be used without modification except as noted previously.
 
-TSPROC
-------
-TSPROC is a Time Series PROCessor that uses a configuration file to describe
-the tasks the data scientist or modeler wants to accomplish.
+The documentation for TSPROC can be used to understand tsblender and build the
+control and input files.  The TSPROC documentation is available at:
+https://pubs.usgs.gov/tm/tm7c7/
 
-Initial TSPROC development was by John Doherty, Watermark Numerical Computing.
-It was part of the Surface Water Utilities package that was created to support
-optimization of model parameters using the Parameter ESTimation (PEST) suite of
-programs.  PEST was also developed by John Doherty.
+The tsblender works with PEST, PEST++, and PEST-HP suites of programs.  These
+are used to optimize model parameters and to perform uncertainty analysis on
+model predictions.  Information on PEST and related programs can be found at:
+http://www.pesthomepage.org/ and https://github.com/usgs/pestpp.
 
-TSPROC is written in Fortran 90 and "C" and is available from the USGS at:
+USGS TSPROC
+-----------
+The USGS TSPROC is a Time Series PROCessor that uses a configuration file to
+describe the tasks the data scientist or modeler wants to accomplish.
 
-:Main site: https://wi.water.usgs.gov/models/tsproc/
-:Documentation: https://pubs.usgs.gov/tm/tm7c7/
-:Development: https://github.com/smwesten-usgs/tsproc
+The USGS TSPROC is based upon part of the Surface Water Utilities Package
+developed by John Doherty, Watermark Numerical Computing. The Surface Water
+Utilities package was created to support optimization of model parameters using
+the Parameter ESTimation (PEST) suite of programs.  PEST was also developed by
+John Doherty.
+
+USGS TSPROC was rewritten in a project led by Steve Westenbroek, of the
+Wisconsin USGS.  It is written in Fortran 90 and "C" and is available from
+the USGS at:
+
+:TSPROC Main site: https://wi.water.usgs.gov/models/tsproc/
+:TSPROC Documentation: https://pubs.usgs.gov/tm/tm7c7/
+:TSPROC Development: https://github.com/smwesten-usgs/tsproc
 
 Requirements
 ------------
@@ -82,28 +97,68 @@ Just run 'tsblender --help' to get a list of subcommands::
 
 Progress
 ========
-This version of tsblender is INCOMPLETE.
+ONLY in tsblender
+-----------------
 
-The following blocks are only implemented in 'tsblender' and not in 'tsproc'.
+     +------------------------+
+     | tsblender Block Name   |
+     +========================+
+     | GET_SERIES_GSFLOW_GAGE |
+     +------------------------+
+     | GET_SERIES_CSV         |
+     +------------------------+
+     | GET_SERIES_HSPFBIN     |
+     +------------------------+
+     | GET_SERIES_XLSX        |
+     +------------------------+
+     | COPY                   |
+     +------------------------+
+     | MOVE                   |
+     +------------------------+
+     | PLOT                   |
+     +------------------------+
 
-     +------------------------+--------+-----------+
-     | TSPROC Block Name      | tsproc | tsblender |
-     +========================+========+===========+
-     | GET_SERIES_GSFLOW_GAGE |        | X         |
-     +------------------------+--------+-----------+
-     | GET_SERIES_CSV         |        | X         |
-     +------------------------+--------+-----------+
-     | GET_SERIES_HSPFBIN     |        | X         |
-     +------------------------+--------+-----------+
-     | GET_SERIES_XLSX        |        | X         |
-     +------------------------+--------+-----------+
-     | COPY                   |        | X         |
-     +------------------------+--------+-----------+
-     | MOVE                   |        | X         |
-     +------------------------+--------+-----------+
-     | PLOT                   |        | X         |
-     +------------------------+--------+-----------+
+There is a new feature in tsblender to "roll up" multiple blocks into a single
+block.  This is done to simplify the control file, to reduce mistakes that can
+come from repetition, and to make the control file easier to read and
+understand.  Not all blocks can be rolled up depending on how they are
+configured.  The blocks that can't be rolled up are: EXCEEDENCE_TIME,
+FLOW_DURATION, GET_MUL_*, HYDROLOGIC_INDICES, LIST_OUTPUT, PLOT, SETTINGS, and
+WRITE_PEST_FILES.
 
+Rolled up example of GET_SERIES_WDM::
+
+    START GET_SERIES_WDM
+      CONTEXT input
+      NEW_SERIES_NAME obs01   sim01
+      FILE            obs.wdm sim.wdm
+      DSN             1001
+      DATE_1          2000-01-01
+      DATE_2          2000-12-31
+    END GET_SERIES_WDM
+
+Would un-roll within tsblender to the following::
+
+    START GET_SERIES_WDM
+      CONTEXT input
+      NEW_SERIES_NAME obs01
+      FILE            obs.wdm
+      DSN             1001
+      DATE_1          2000-01-01
+      DATE_2          2000-12-31
+    END GET_SERIES_WDM
+
+    START GET_SERIES_WDM
+      CONTEXT input
+      NEW_SERIES_NAME sim01
+      FILE            sim.wdm
+      DSN             1001
+      DATE_1          2000-01-01
+      DATE_2          2000-12-31
+    END GET_SERIES_WDM
+
+In Progress
+-----------
 The following table shows the progress of the implementation of the TSPROC
 blocks in 'tsblender'.
 
@@ -170,11 +225,14 @@ blocks in 'tsblender'.
      +------------------------+--------+-----------+
      | VOLUME_CALCULATION     | X      | X         |
      +------------------------+--------+-----------+
-     | WRITE_PEST_FILES       | X      |           |
+     | WRITE_PEST_FILES       | X      | X         |
      +------------------------+--------+-----------+
 
-The GET_MUL_SERIES_* blocks are redundant in 'tsblender' and can be
-replaced by rolled up versions of the GET_SERIES_* blocks.
+Deprecated in tsblender
+-----------------------
+The GET_MUL_SERIES_* blocks are redundant in 'tsblender' and can be replaced by
+rolled up versions of the GET_SERIES_* blocks.  They are implemented full in
+tsblender, but discouraged for use in new scripts.
 
      +----------------------------+--------+-----------+
      | TSPROC Block Name          | tsproc | tsblender |
