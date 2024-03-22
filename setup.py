@@ -9,7 +9,7 @@ pkg_name = "tsblender"
 version = open("VERSION").readline().strip()
 
 if sys.argv[-1] == "publish":
-    subprocess.run(shlex.split("cleanpy ."), check=True)
+    subprocess.run(shlex.split("pyclean --debris ."), check=True)
     subprocess.run(shlex.split("python setup.py sdist"), check=True)
     subprocess.run(
         shlex.split(f"twine upload --skip-existing dist/{pkg_name}-{version}.tar.gz"),
