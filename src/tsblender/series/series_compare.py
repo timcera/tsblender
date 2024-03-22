@@ -81,19 +81,6 @@ def series_compare(
     else:
         series_base = None
 
-    c_table = [
-        "Bias:",
-        "Standard error:",
-        "Relative bias:",
-        "Relative standard error:",
-        "Nash-Sutcliffe coefficient:",
-        "Coefficient of efficiency:",
-        "Index of agreement:",
-        "Volumetric efficiency:",
-    ]
-
-    c_table = pd.DataFrame(data=[pd.NA] * len(c_table), index=c_table)
-
     stats = {}
     if self._normalize_bools(bias):
         stats["Bias:"] = gof(stats="me", sim_col=series_sim, obs_col=series_obs)[0][1]

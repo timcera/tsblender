@@ -743,7 +743,18 @@ class Tables:
 
     def _get_c_table(self, c_table_name: str):
         """Get a c_table from the c_table dataframe."""
-        return self.c_table[c_table_name.upper()].dropna()
+
+        c_table = [
+            "Bias:",
+            "Standard error:",
+            "Relative bias:",
+            "Relative standard error:",
+            "Nash-Sutcliffe coefficient:",
+            "Coefficient of efficiency:",
+            "Index of agreement:",
+            "Volumetric efficiency:",
+        ]
+        return self.c_table[c_table_name.upper()].reindex(c_table).dropna()
 
     def _get_e_table(self, e_table_name: str):
         """Get a e_table from the e_table dataframe."""
