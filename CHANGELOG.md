@@ -1,3 +1,9 @@
+## v103.1.2 (2024-03-21)
+
+### Fix
+
+- defined correct index order for c_table
+
 ## v103.1.1 (2024-02-08)
 
 ### Refactor
