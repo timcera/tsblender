@@ -23,7 +23,6 @@ from numpy import arctan as atan
 from numpy import cos, cosh, exp, isin, log, log10, sin, sinh, sqrt, tan, tanh
 from plottoolbox import plottoolbox
 from pydantic import Field
-from pytest import param
 from typing_extensions import Annotated
 
 try:
