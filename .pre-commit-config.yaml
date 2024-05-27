@@ -4,7 +4,7 @@
 
 repos:
     - repo: https://github.com/pre-commit/pre-commit-hooks
-      rev: v4.5.0
+      rev: v4.6.0
       hooks:
           - id: check-case-conflict
           - id: check-docstring-first
@@ -15,12 +15,10 @@ repos:
           - id: check-toml
           - id: check-xml
           - id: end-of-file-fixer
-            exclude: notebooks/tstoolbox_plot_bash.sh
           - id: fix-encoding-pragma
             args: [--remove]
           - id: mixed-line-ending
           - id: trailing-whitespace
-            exclude: notebooks/tstoolbox_plot_bash.sh
 
     - repo: https://github.com/pappasam/toml-sort
       rev: v0.23.1
@@ -52,7 +50,7 @@ repos:
             args: [--indent-size, '4']
 
     - repo: https://github.com/psf/black
-      rev: 24.3.0
+      rev: 24.4.2
       hooks:
           - id: black
           - id: black-jupyter
@@ -83,13 +81,13 @@ repos:
           - id: pyupgrade
 
     - repo: https://github.com/commitizen-tools/commitizen
-      rev: v3.21.3
+      rev: v3.26.0
       hooks:
           - id: commitizen
             stages: [commit-msg]
 
     - repo: https://github.com/mwouts/jupytext
-      rev: v1.16.1
+      rev: v1.16.2
       hooks:
           - id: jupytext
             args: [--from, ipynb, --to, auto:percent, --sync]
