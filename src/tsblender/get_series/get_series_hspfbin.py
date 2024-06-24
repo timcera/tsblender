@@ -1,5 +1,3 @@
-import pandas as pd
-
 try:
     from pydantic import validate_call
 except ImportError:
@@ -8,9 +6,12 @@ except ImportError:
 from typing import Literal, Optional
 
 from pydantic import Field
-from toolbox_utils import tsutils
-from toolbox_utils.readers.hbn import hbn_extract as _get_series_hbn
 from typing_extensions import Annotated
+
+from tsblender.toolbox_utils.src.toolbox_utils import tsutils
+from tsblender.toolbox_utils.src.toolbox_utils.readers.hbn import (
+    hbn_extract as _get_series_hbn,
+)
 
 
 @validate_call

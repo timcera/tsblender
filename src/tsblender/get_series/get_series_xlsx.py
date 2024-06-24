@@ -5,7 +5,7 @@ except ImportError:
 
 from typing import Optional, Union
 
-from toolbox_utils import tsutils
+from tsblender.toolbox_utils.src.toolbox_utils import tsutils
 
 
 @validate_call

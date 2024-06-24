@@ -1,3 +1,5 @@
+import re
+
 try:
     from pydantic import validate_call
 except ImportError:

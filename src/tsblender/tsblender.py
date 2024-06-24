@@ -16,12 +16,6 @@ from fortranformat import FortranRecordWriter
 from hydrotoolbox import hydrotoolbox
 from hydrotoolbox.hydrotoolbox import baseflow_sep
 from matplotlib import pyplot as plt
-from numpy import abs
-from numpy import arccos as acos
-from numpy import arcsin as asin
-from numpy import arctan as atan
-from numpy import cos, cosh, exp, isin, log, log10, sin, sinh, sqrt, tan, tanh
-from plottoolbox import plottoolbox
 from pydantic import Field
 from typing_extensions import Annotated
 
@@ -31,7 +25,8 @@ except ImportError:
     from pydantic import validate_arguments as validate_call
 
 from scipy import signal
-from toolbox_utils import tsutils
+
+from tsblender.toolbox_utils.src.toolbox_utils import tsutils
 
 
 def warning(message: str):

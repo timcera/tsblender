@@ -8,9 +8,12 @@ try:
 except ImportError:
     from pydantic import validate_arguments as validate_call
 
-from toolbox_utils import tsutils
-from toolbox_utils.readers.wdm import wdm_extract as _get_series_wdm
 from typing_extensions import Annotated
+
+from tsblender.toolbox_utils.src.toolbox_utils import tsutils
+from tsblender.toolbox_utils.src.toolbox_utils.readers.wdm import (
+    wdm_extract as _get_series_wdm,
+)
 
 
 @validate_call

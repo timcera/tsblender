@@ -6,7 +6,8 @@ except ImportError:
 from typing import Optional
 
 import pandas as pd
-from toolbox_utils import tsutils
+
+from tsblender.toolbox_utils.src.toolbox_utils import tsutils
 
 
 @validate_call

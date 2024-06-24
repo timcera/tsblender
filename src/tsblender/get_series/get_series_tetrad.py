@@ -20,9 +20,9 @@ def get_series_tetrad(
     date_2: Optional[str] = None,
     time_2: Optional[str] = None,
 ):
-    """Get a time series from a TETRAD file."""
-    start_date = self._normalize_datetimes(date_1, time_1)
-    end_date = self._normalize_datetimes(date_2, time_2)
-    model_reference_date = self._normalize_datetimes(
-        model_reference_date, model_reference_time
-    )
+    """Get a time series from a TETRAD file.
+
+    I can't find the TETRAD file format documentation, so I'm not sure what
+    the arguments are supposed to be.  I don't think this is properly
+    implemented in TSPROC either.  Placeholder for now.
+    """

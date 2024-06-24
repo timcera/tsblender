@@ -8,8 +8,9 @@ except ImportError:
 from typing import Optional
 
 from pydantic import Field
-from toolbox_utils import tsutils
 from typing_extensions import Annotated
+
+from tsblender.toolbox_utils.src.toolbox_utils import tsutils
 
 
 @validate_call

@@ -3,8 +3,7 @@ build-backend = "setuptools.build_meta"
 requires = [
     "setuptools>=45",
     "setuptools_scm[toml]>=6.2",
-    "wheel",
-    "oldest-supported-numpy"
+    "wheel"
 ]
 
 [project]
@@ -16,14 +15,13 @@ dependencies = [
     "flopy",
     "fortranformat",
     "hspf_reader",
-    "hydrotoolbox >= 2.0.0",
+    "hydrotoolbox >= 2.0.11",
     "numpy",
     "pandas",
     "pint-pandas",
     "pydantic",
     "pyemu",
     "python-dateutil",
-    "toolbox_utils >= 5.0.0, < 6.0.0",
     "tstoolbox >= 106.0.0",
     "xlsxwriter"
 ]
@@ -60,34 +58,6 @@ keywords = [
 license = {text = "BSD-3-Clause"}
 requires-python = ">=3.8"
 
-[project.optional-dependencies]
-dev = [
-    "bandit",
-    "black",
-    "blacken-docs",
-    "black-nbconvert",
-    "pyclean",
-    "commitizen",
-    "coverage[toml]",
-    "isort",
-    "mypy",
-    "pre-commit",
-    "pyflakes",
-    "pylama",
-    "pyle",
-    "pylint",
-    "pyre",
-    "pyroma",
-    "pytest",
-    "pytest-cov",
-    "pytest-mpl",
-    "pyupgrade",
-    "twine",
-    "unimport",
-    "velin",
-    "vulture"
-]
-
 [project.scripts]
 tsblender = "tsblender.tsblender:main"
 
@@ -95,14 +65,6 @@ tsblender = "tsblender.tsblender:main"
 documentation = "https://timcera.bitbucket.io/tsblender/docs/index.html#tsblender-documentation"
 github = "https://github.com/timcera/tsblender"
 bitbucket = "https://bitbucket.org/timcera/tsblender/src/main/"
-
-[tool.check-manifest]
-ignore = [
-    "docs/_function_autosummary/*",
-    ".coverage",
-    ".deepsource.toml",
-    ".ipynb_checkpoints/*"
-]
 
 [tool.commitizen]
 name = "cz_conventional_commits"
@@ -114,6 +76,9 @@ version_files = ["VERSION"]
 [tool.isort]
 profile = "black"
 
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
 [tool.setuptools]
 license-files = ["LICENSE.txt"]
 include-package-data = true
@@ -123,7 +88,6 @@ readme = {file = "README.rst"}
 version = {file = "VERSION"}
 
 [tool.setuptools.packages.find]
-exclude = ["tests*", "examples*", "tools*", "docs*", "tsblender.tests*"]
 where = ["src"]
 
 [tool.setuptools_scm]
