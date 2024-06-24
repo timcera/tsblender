@@ -1,3 +1,9 @@
+## v103.2.1 (2024-06-24)
+
+### Fix
+
+- moved to local toolbox_utils
+
 ## v103.2.0 (2024-03-31)
 
 ### Feat
