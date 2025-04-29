@@ -40,14 +40,14 @@
 
  G_TABLE "sim_hyd_indx04" ---->
    Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
-   MA3: CV of all daily flows                                                      112.9890
+   MA3: CV of all daily flows                                                      107.9288
    MA44: (Q10-Q90)[annual]/median annual flow                                     0.7927992
    ML13: CV of minimum monthly flows                                               40.09836
    ML14: Mean minimum daily flow/mean median annual flow                          0.5451340
 
  G_TABLE "sim_hyd_indx05" ---->
    Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
-   MA3: CV of all daily flows                                                      112.9890
+   MA3: CV of all daily flows                                                      107.9288
    MA8: Q25/Q75 for all daily flows                                                1.907218
    MA41: Mean annual runoff                                                        1.115339
    ML14: Mean minimum daily flow/mean median annual flow                          0.5451340
@@ -65,7 +65,7 @@
 
  G_TABLE "sim_hyd_indx07" ---->
    Hydrologic index for Sq6500 10/01/1990:09/30/2000                                Value
-   MA3: CV of all daily flows                                                      112.9890
+   MA3: CV of all daily flows                                                      107.9288
    MA5: Mean daily flow/median daily flow                                          1.332581
    MA11: (Q25-Q75)/median daily flow                                              0.6684969
    MA41: Mean annual runoff                                                        1.115339

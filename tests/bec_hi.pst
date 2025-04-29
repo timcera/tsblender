@@ -3699,3 +3699,6 @@ sim_hyd_indx5               0.581449        1.000000 sim_hyd_indx
 sim_hyd_indx6              28.200000        1.000000 sim_hyd_indx
 * model command line
 modelcmd.bat
+
+* model input/output
+par2par_base.dat par2par_base.tpl

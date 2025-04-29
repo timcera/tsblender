@@ -3681,18 +3681,22 @@ sq65003650                 39.000000        0.025641 sq6500
 sq65003651                 37.000000        0.027027 sq6500
 sq65003652                 36.000000        0.027778 sq6500
 sq65003653                 36.000000        0.027778 sq6500
-flow_dur_sim1              20.000000        0.050000 flow_dur_sim
-flow_dur_sim2              20.000000        0.050000 flow_dur_sim
-flow_dur_sim3              21.000000        0.047619 flow_dur_sim
-flow_dur_sim4              23.000000        0.043478 flow_dur_sim
-flow_dur_sim5              25.000000        0.040000 flow_dur_sim
-flow_dur_sim6              30.000000        0.033333 flow_dur_sim
+flow_dur_sim1             214.660000        0.004659 flow_dur_sim
+flow_dur_sim2             161.960000        0.006174 flow_dur_sim
+flow_dur_sim3             113.000000        0.008850 flow_dur_sim
+flow_dur_sim4              75.000000        0.013333 flow_dur_sim
+flow_dur_sim5              60.000000        0.016667 flow_dur_sim
+flow_dur_sim6              46.000000        0.021739 flow_dur_sim
 flow_dur_sim7              37.000000        0.027027 flow_dur_sim
-flow_dur_sim8              46.000000        0.021739 flow_dur_sim
-flow_dur_sim9              60.000000        0.016667 flow_dur_sim
-flow_dur_sim10             75.000000        0.013333 flow_dur_sim
-flow_dur_sim11            113.000000        0.008850 flow_dur_sim
-flow_dur_sim12            161.960000        0.006174 flow_dur_sim
-flow_dur_sim13            214.660000        0.004659 flow_dur_sim
+flow_dur_sim8              30.000000        0.033333 flow_dur_sim
+flow_dur_sim9              25.000000        0.040000 flow_dur_sim
+flow_dur_sim10             23.000000        0.043478 flow_dur_sim
+flow_dur_sim11             21.000000        0.047619 flow_dur_sim
+flow_dur_sim12             20.000000        0.050000 flow_dur_sim
+flow_dur_sim13             20.000000        0.050000 flow_dur_sim
 * model command line
 modelcmd.bat
+
+* model input/output
+par2par_base.tpl par2par_base.dat
+sim_vals_flowdur.ins hi_test_flow_duration_sim_output.txt

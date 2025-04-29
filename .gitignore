@@ -34,3 +34,4 @@ __pycache__/*
 stats.dat
 .ropeproject
 debug_*
+docs/_function_autosummary

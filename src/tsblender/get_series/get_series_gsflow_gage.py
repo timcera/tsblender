@@ -27,7 +27,32 @@ def get_series_gsflow_gage(
     date_2: Optional[str] = None,
     time_2: Optional[str] = None,
 ):
-    """Get a time series from a GSFLOW gage file."""
+    """
+    Get a time series from a GSFLOW gage file.
+
+    Parameters
+    ----------
+    file : str
+        The path to the GSFLOW gage file.
+    data_type : str
+        The type of data to extract from the file.
+    new_series_name : str
+        The name of the new time series.
+    model_reference_date : str
+        The reference date of the model.
+    model_reference_time : str
+        The reference time of the model.
+    time_units_per_day : int, default 1
+        The number of time units per day.
+    date_1 : str, default None
+        The start date of the time series.
+    time_1 : str, default None
+        The start time of the time series.
+    date_2 : str, default None
+        The end date of the time series.
+    time_2 : str, default None
+        The end time of the time series.
+    """
     if isinstance(data_type, str):
         data_type = [data_type]
     if isinstance(new_series_name, str):

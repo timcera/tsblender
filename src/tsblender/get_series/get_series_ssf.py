@@ -17,9 +17,9 @@ def get_series_ssf(
     site,
     new_series_name,
     date_1: Optional[str] = None,
-    time_1: Optional[str] = None,
+    time_1: Optional[str] = "00:00:00",
     date_2: Optional[str] = None,
-    time_2: Optional[str] = None,
+    time_2: Optional[str] = "24:00:00",
 ):
     """Get a time series from a SSF file."""
     if isinstance(site, str):

@@ -34,12 +34,6 @@ def warning(message: str):
     print(tsutils.error_wrapper(message), file=sys.stderr)
 
 
-@cltoolbox.command()
-def about():
-    """Display version number and system information."""
-    tsutils.about(__name__)
-
-
 deprecated = {
     "GET_MUL_SERIES_PLOTGEN": "Use multiple GET_SERIES_PLOTGEN blocks or a rolled up GET_SERIES_PLOTGEN block instead.",
     "GET_MUL_SERIES_GSFLOW_GAGE": "Use multiple GET_SERIES_GSFLOW_GAGE blocks or a rolled up GET_SERIES_GSFLOW_GAGE block instead.",
@@ -222,13 +216,12 @@ class Tables:
                 "f": self.get_series_gsflow_gage,
             },
             "GET_SERIES_CSV": {
-                "args": ["CONTEXT", "FILE", "NEW_SERIES_NAME"],
+                "args": ["CONTEXT", "FILE", "NEW_SERIES_NAME", "USECOL"],
                 "kwds": {
                     "DATE_1": None,
                     "TIME_1": None,
                     "DATE_2": None,
                     "TIME_2": None,
-                    "USECOL": None,
                 },
                 "f": self.get_series_csv,
             },
@@ -660,7 +653,10 @@ class Tables:
             },
             "V_TABLE_TO_SERIES": {
                 "args": ["CONTEXT", "NEW_SERIES_NAME", "V_TABLE_NAME", "TIME_ABSCISSA"],
-                "kwds": {},
+                "kwds": {
+                    "CUMULATIVE": False,
+                    "FACTOR": 1.0,
+                },
                 "f": self.v_table_to_series,
             },
             "VOLUME_CALCULATION": {
@@ -678,13 +674,17 @@ class Tables:
                 "f": self.volume_calculation,
             },
             "WRITE_PEST_FILES": {
-                "args": ["CONTEXT", "NEW_PEST_CONTROL_FILE", "NEW_INSTRUCTION_FILE"],
+                "args": [
+                    "CONTEXT",
+                    "NEW_PEST_CONTROL_FILE",
+                    "NEW_INSTRUCTION_FILE",
+                    "TEMPLATE_FILE",
+                    "MODEL_INPUT_FILE",
+                    "PARAMETER_DATA_FILE",
+                    "PARAMETER_GROUP_FILE",
+                    "MODEL_COMMAND_LINE",
+                ],
                 "kwds": {
-                    "SERIES_NAME": None,
-                    "TEMPLATE_FILE": None,
-                    "MODEL_INPUT_FILE": None,
-                    "PARAMETER_DATA_FILE": None,
-                    "PARAMETER_GROUP_FILE": None,
                     "OBSERVATION_SERIES_NAME": (),
                     "MODEL_SERIES_NAME": (),
                     "SERIES_WEIGHTS_EQUATION": (),
@@ -707,7 +707,6 @@ class Tables:
                     "G_TABLE_WEIGHTS_MIN_MAX": (),
                     "AUTOMATIC_USER_INTERVENTION": "no",
                     "TRUNCATED_SVD": 2.0e-7,
-                    "MODEL_COMMAND_LINE": None,
                 },
                 "f": self.write_pest_files,
             },
@@ -1418,8 +1417,9 @@ class Tables:
         if series_name and not series_format:
             raise ValueError(
                 tsutils.error_wrapper(
-                    """
-                    When listing series, the series_format must be specified.
+                    f"""
+                    When listing series "{series_name}", the "series_format" must
+                    be set to either "long", "short" or "ssf".
                     """
                 )
             )
@@ -1450,6 +1450,7 @@ class Tables:
             "s_table_row": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']51:69', /)"),
             "g_table_row": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']82:96', /)"),
             "e_table_row": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']59:78', /)"),
+            "v_table_row": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']63:78', /)"),
         }
 
         # Time series first
@@ -1471,29 +1472,39 @@ class Tables:
                         if series.index.freqstr == "D":
                             time = "12:00:00"
                         fp.write(
-                            fortran_format_instructions["series_long"].write(
-                                [f"{line_skip}", sern.lower(), f"{rowno+1}"]
-                            )
+                            fortran_format_instructions["series_long"]
+                            .write([f"{line_skip}", sern.lower(), f"{rowno + 1}"])
+                            .rstrip()
+                            + "\n"
                             if _ins_file
-                            else fortran_format_data["series_long"].write(
-                                [sern.lower(), date, time, value]
-                            )
+                            else fortran_format_data["series_long"]
+                            .write([sern.lower(), date, time, value])
+                            .rstrip()
+                            + "\n"
                         )
                     elif series_format == "short":
                         fp.write(
-                            fortran_format_instructions["series_short"].write(
-                                [f"{line_skip}", sern, f"{rowno+1}"]
-                            )
+                            fortran_format_instructions["series_short"]
+                            .write([f"{line_skip}", sern, f"{rowno + 1}"])
+                            .rstrip()
+                            + "\n"
                             if _ins_file
-                            else fortran_format_data["series_short"].write([value])
+                            else fortran_format_data["series_short"]
+                            .write([value])
+                            .rstrip()
+                            + "\n"
                         )
                     elif series_format == "ssf":
                         fp.write(
-                            fortran_format_instructions["series_long"].write(
-                                [f"{line_skip}", sern, f"{rowno+1}"]
-                            )
+                            fortran_format_instructions["series_long"]
+                            .write([f"{line_skip}", sern, f"{rowno + 1}"])
+                            .rstrip()
+                            + "\n"
                             if _ins_file
-                            else fortran_format_data["series_ssf"].write([sern, value])
+                            else fortran_format_data["series_ssf"]
+                            .write([sern, value])
+                            .rstrip()
+                            + "\n"
                         )
                     line_skip = 1
 
@@ -1516,7 +1527,8 @@ class Tables:
                     fp.write(
                         "1l {s_tab}  \n"
                         if _ins_file
-                        else fortran_format_data["table"].write([index, value])
+                        else fortran_format_data["table"].write([index, value]).rstrip()
+                        + "\n"
                     )
 
             for c_tab in c_table_name:
@@ -1527,8 +1539,8 @@ class Tables:
                     if _ins_file
                     else f"""
  C_TABLE "{c_tab}" ---->
-    Observation time series name:                     "{ctab['obs_name'].lower()}"
-    Simulation time series name:                      "{ctab['sim_name'].lower()}"
+    Observation time series name:                     "{ctab["obs_name"].lower()}"
+    Simulation time series name:                      "{ctab["sim_name"].lower()}"
     Beginning date of series comparison:              {ctab["start_date"].strftime("%Y-%m-%d")}
     Beginning time of series comparison:              {ctab["start_date"].strftime("%H:%M:%S")}
     Finishing date of series comparison:              {ctab["end_date"].strftime("%Y-%m-%d")}
@@ -1538,14 +1550,18 @@ class Tables:
                 )
                 for index, value in stats.items():
                     fp.write(
-                        fortran_format_instructions["table"].write([index, value])
+                        fortran_format_instructions["table"]
+                        .write([index, value])
+                        .rstrip()
+                        + "\n"
                         if _ins_file
-                        else fortran_format_data["table"].write([index, value])
+                        else fortran_format_data["table"].write([index, value]).rstrip()
+                        + "\n"
                     )
 
             for v_tab in v_table_name:
                 fp.write(
-                    "l4"
+                    ""
                     if _ins_file
                     else f"""
  V_TABLE "{v_tab}" ---->
@@ -1553,11 +1569,18 @@ class Tables:
 """
                 )
                 v_table = self._get_v_table(v_tab)
+                line_skip = 4
+                vrow = 0
                 for index, value in v_table.dropna().items():
+                    vrow += 1
                     fp.write(
-                        "v_table"
+                        fortran_format_instructions["v_table_row"]
+                        .write([f"{line_skip}", v_tab.lower(), f"{vrow}"])
+                        .rstrip()
+                        + "\n"
                         if _ins_file
-                        else fortran_format_data["v_table"].write(
+                        else fortran_format_data["v_table"]
+                        .write(
                             [
                                 index[0].strftime(self.date_format),
                                 index[0].strftime("%H:%M:%S"),
@@ -1566,7 +1589,10 @@ class Tables:
                                 value,
                             ]
                         )
+                        .rstrip()
+                        + "\n"
                     )
+                    line_skip = 1
 
             for e_tab_name in e_table_name:
                 e_tab = self._get_e_table(e_tab_name.upper())
@@ -1584,20 +1610,25 @@ class Tables:
                 fp.write(
                     ""
                     if _ins_file
-                    else fortran_format_data["e_table_header"].write(
-                        [units, direction, units, direction]
-                    )
+                    else fortran_format_data["e_table_header"]
+                    .write([units, direction, units, direction])
+                    .rstrip()
+                    + "\n"
                 )
                 line_skip = 4
                 for row, (index, value) in enumerate(e_tab.dropna().items(), start=1):
                     fp.write(
-                        fortran_format_instructions["e_table_row"].write(
-                            [f"{line_skip}", e_tab_name.lower(), f"{row}"]
-                        )
+                        fortran_format_instructions["e_table_row"]
+                        .write([f"{line_skip}", e_tab_name.lower(), f"{row}"])
+                        .rstrip()
+                        + "\n"
                         if _ins_file
                         else FortranRecordWriter(
                             "t2, g14.7, t20, g14.7, t40, g14.7, t63, g14.7, /"
-                        ).write([index[0], index[1], value, et_tot[index]])
+                        )
+                        .write([index[0], index[1], value, et_tot[index]])
+                        .rstrip()
+                        + "\n"
                     )
                     line_skip = 1
 
@@ -1628,13 +1659,16 @@ class Tables:
                         if _ins_file
                         else FortranRecordWriter(
                             "t4, 'Flow duration curve for ', a, ' ', a, ':', a, t85, 'Value', /"
-                        ).write(
+                        )
+                        .write(
                             [
                                 src,
                                 start_date.strftime("%m/%d/%Y"),
                                 end_date.strftime("%m/%d/%Y"),
                             ]
                         )
+                        .rstrip()
+                        + "\n"
                     )
 
                     line_skip = 4
@@ -1643,13 +1677,15 @@ class Tables:
                         g_table.dropna().items(), start=1
                     ):
                         fp.write(
-                            fortran_format_instructions["g_table_row"].write(
-                                [f"{line_skip}", g_tab.lower(), f"{row}"]
-                            )
+                            fortran_format_instructions["g_table_row"]
+                            .write([f"{line_skip}", g_tab.lower(), f"{row}"])
+                            .rstrip()
+                            + "\n"
                             if _ins_file
-                            else fortran_format_data["g_table_row"].write(
-                                [f"{index:>6.02%} of flows exceed:", value]
-                            )
+                            else fortran_format_data["g_table_row"]
+                            .write([f"{index:>6.02%} of flows exceed:", value])
+                            .rstrip()
+                            + "\n"
                         )
                         line_skip = 1
                 elif kind == "hydrologic_indices":
@@ -1661,25 +1697,30 @@ class Tables:
                         if _ins_file
                         else FortranRecordWriter(
                             "t4, 'Hydrologic index for ', a, ' ', a, ':', a, t85, 'Value', /"
-                        ).write(
+                        )
+                        .write(
                             [
                                 src,
                                 start_date.strftime("%m/%d/%Y"),
                                 end_date.strftime("%m/%d/%Y"),
                             ]
                         )
+                        .rstrip()
+                        + "\n"
                     )
 
                     line_skip = 4
                     for row, (index, value) in enumerate(g_table.items(), start=1):
                         fp.write(
-                            fortran_format_instructions["g_table_row"].write(
-                                [f"{line_skip}", g_tab.lower(), f"{row}"]
-                            )
+                            fortran_format_instructions["g_table_row"]
+                            .write([f"{line_skip}", g_tab.lower(), f"{row}"])
+                            .rstrip()
+                            + "\n"
                             if _ins_file
-                            else FortranRecordWriter("t4, a, t82, g14.7, /").write(
-                                [index, value]
-                            )
+                            else FortranRecordWriter("t4, a, t82, g14.7, /")
+                            .write([index, value])
+                            .rstrip()
+                            + "\n"
                         )
                         line_skip = 1
 
@@ -1821,6 +1862,7 @@ class Tables:
         """Plot a time series."""
         if isinstance(series_name, str):
             series_name = [series_name]
+
         date_1 = kwargs.pop("date_1", None)
         time_1 = kwargs.pop("time_1", None)
         date_2 = kwargs.pop("date_2", None)
@@ -1852,11 +1894,11 @@ class Tables:
             kwargs.pop("figsize_height", 6),
         )
 
-        kwargs["legend"] = self._normalize_bools(kwargs["legend"])
-        kwargs["logx"] = self._normalize_bools(kwargs["logx"])
-        kwargs["logy"] = self._normalize_bools(kwargs["logy"])
-        kwargs["mark_right"] = self._normalize_bools(kwargs["mark_right"])
-        kwargs["grid"] = self._normalize_bools(kwargs["grid"])
+        kwargs["legend"] = self._normalize_bools(kwargs.pop("legend", True))
+        kwargs["logx"] = self._normalize_bools(kwargs.pop("logx", False))
+        kwargs["logy"] = self._normalize_bools(kwargs.pop("logy", False))
+        kwargs["mark_right"] = self._normalize_bools(kwargs.pop("mark_right", True))
+        kwargs["grid"] = self._normalize_bools(kwargs.pop("grid", False))
 
         ax = series.plot(**kwargs)
         ax.figure.savefig(file)
@@ -2072,7 +2114,7 @@ class Tables:
             for index, (val, weight) in enumerate(
                 zip(obsval.dropna(), weights_df.dropna())
             ):
-                modindex = f"{model.lower()}{index+1}"
+                modindex = f"{model.lower()}{index + 1}"
                 observation_data.append(
                     f"{modindex:20} {val:15f} {weight:15f} {model.lower():20}"
                 )
@@ -2083,10 +2125,11 @@ class Tables:
         self,
         new_pest_control_file,
         new_instruction_file,
-        template_file=None,
-        model_input_file=None,
-        parameter_data_file=None,
-        parameter_group_file=None,
+        template_file,
+        model_input_file,
+        parameter_data_file,
+        parameter_group_file,
+        model_command_line,
         observation_series_name=(),
         model_series_name=(),
         series_weights_equation=(),
@@ -2109,51 +2152,15 @@ class Tables:
         g_table_weights_min_max=(),
         automatic_user_intervention=None,
         truncated_svd=None,
-        model_command_line=None,
         **kwds,
     ):
         """Write PEST control file and instruction file."""
         self.last_list_output_parameters["_ins_file"] = new_instruction_file
         self.list_output(**self.last_list_output_parameters)
 
-        # Automatic user intervention and SVD truncation have to be handled
-        # first because they set different defaults for other keywords.
-        _doaui = kwds.get("doaui", "aui").lower()
-        if _doaui not in ["aui", "auid", "noaui"]:
-            raise ValueError(
-                tsutils.error_wrapper(
-                    f"""
-                    The value for "doaui" must be either "aui", "auid", or
-                    "noaui", not "{_doaui}".
-                    """
-                )
-            )
-        if automatic_user_intervention is not None:
-            warning(
-                """
-                The "automatic_user_intervention" keyword is unused and replaced
-                with setting the "doaui" keyword to "aui", "auid", or "noaui".
-                """
-            )
-        if truncated_svd is not None:
-            warning(
-                """
-                The "truncated_svd" keyword is unused and replaced with
-                setting the "eigthresh" keyword to a small positive value.
-                """
-            )
-        eigthresh = kwds.get("eigthresh", 0)
-        if eigthresh > 0 and _doaui in ["aui", "auid"]:
-            raise ValueError(
-                tsutils.error_wrapper(
-                    """
-                    If the "eigthresh" keyword is set to a positive value,
-                    that activates the truncated SVD option and the "doaui"
-                    keyword must be set to "noaui".
-                    """
-                )
-            )
-
+        # Need to process the parameter data file, parameter group file, and
+        # the observation data first to get information required in the control
+        # data section.
         template_parameters = set()
         if isinstance(template_file, str):
             template_file = [template_file]
@@ -2178,202 +2185,228 @@ class Tables:
 
         npargp = 0
         parameter_group_names = set()
-        for line, line_number in self._read_file(parameter_group_file):
-            npargp += 1
-            words = line.split()
-            if len(words) == 7:
-                pargpnme, inctyp, derinc, derinclb, forcen, derincmul, dermthd = words
-                splits = ""
-            elif len(words) == 10:
-                (
-                    pargpnme,
-                    inctyp,
-                    derinc,
-                    derinclb,
-                    forcen,
-                    derincmul,
-                    dermthd,
-                    splitthresh,
-                    splitreldiff,
-                    splitaction,
-                ) = words
-                splits = f"{splitthresh:>10} {splitreldiff:>10} {splitaction:>10}"
-            else:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        Line {line_number} of "{parameter_group_file}" has
-                        {len(words)} items.  It must have either 7 or 10 items.
-                        """
+        if parameter_group_file:
+            for line, line_number in self._read_file(parameter_group_file):
+                npargp += 1
+                words = line.split()
+                if len(words) == 7:
+                    pargpnme, inctyp, derinc, derinclb, forcen, derincmul, dermthd = (
+                        words
                     )
-                )
-            if pargpnme.lower() in parameter_group_names:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        Line {line_number} of "{parameter_group_file}" has
-                        a duplicate parameter group name "{pargpnme}".
-                        """
+                    splits = ""
+                elif len(words) == 10:
+                    (
+                        pargpnme,
+                        inctyp,
+                        derinc,
+                        derinclb,
+                        forcen,
+                        derincmul,
+                        dermthd,
+                        splitthresh,
+                        splitreldiff,
+                        splitaction,
+                    ) = words
+                    splits = f"{splitthresh:>10} {splitreldiff:>10} {splitaction:>10}"
+                else:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            Line {line_number} of "{parameter_group_file}" has
+                            {len(words)} items.  It must have either 7 or 10 items.
+                            """
+                        )
                     )
-                )
-            parameter_group_names.add(pargpnme.lower())
-            inctype = inctyp.lower()
-            if inctype not in ["relative", "absolute", "rel_to_max"]:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        Line {line_number} of "{parameter_group_file}" has
-                        an incorrect type of increment.  It must be either
-                        "relative", "absolute", or "rel_to_max" instead of
-                        "{inctype}".
-                        """
+                if pargpnme.lower() in parameter_group_names:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            Line {line_number} of "{parameter_group_file}" has
+                            a duplicate parameter group name "{pargpnme}".
+                            """
+                        )
                     )
-                )
-            derinc = float(derinc)
-            derinclb = float(derinclb)
-            forcen = forcen.lower()
-            if forcen not in ["always_2", "always_3", "always_5", "switch", "switch_5"]:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        Line {line_number} of "{parameter_group_file}" has
-                        an incorrect type of forcing.  It must be either
-                        "always_2", "always_3", "always_5", "switch", or
-                        "switch_5" instead of "{forcen}".
-                        """
+                parameter_group_names.add(pargpnme.lower())
+                inctype = inctyp.lower()
+                if inctype not in ["relative", "absolute", "rel_to_max"]:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            Line {line_number} of "{parameter_group_file}" has
+                            an incorrect type of increment.  It must be either
+                            "relative", "absolute", or "rel_to_max" instead of
+                            "{inctype}".
+                            """
+                        )
                     )
-                )
-            derincmul = float(derincmul)
-            dermthd = dermthd.lower()
-            if dermthd not in [
-                "parabolic",
-                "best_fit",
-                "outside_pts",
-                "minvar",
-                "maxprec",
-            ]:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        Line {line_number} of "{parameter_group_file}" has
-                        an incorrect type of derivative method.  It must be
-                        either "parabolic", "best_fit", "outside_pts",
-                        "minvar", or "maxprec" instead of "{dermthd}".
-                        """
+                derinc = float(derinc)
+                derinclb = float(derinclb)
+                forcen = forcen.lower()
+                if forcen not in [
+                    "always_2",
+                    "always_3",
+                    "always_5",
+                    "switch",
+                    "switch_5",
+                ]:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            Line {line_number} of "{parameter_group_file}" has
+                            an incorrect type of forcing.  It must be either
+                            "always_2", "always_3", "always_5", "switch", or
+                            "switch_5" instead of "{forcen}".
+                            """
+                        )
                     )
+                derincmul = float(derincmul)
+                dermthd = dermthd.lower()
+                if dermthd not in [
+                    "parabolic",
+                    "best_fit",
+                    "outside_pts",
+                    "minvar",
+                    "maxprec",
+                ]:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            Line {line_number} of "{parameter_group_file}" has
+                            an incorrect type of derivative method.  It must be
+                            either "parabolic", "best_fit", "outside_pts",
+                            "minvar", or "maxprec" instead of "{dermthd}".
+                            """
+                        )
+                    )
+                parameter_groups.append(
+                    f"{pargpnme:<12} {inctyp:>10} {derinc:>10} {derinclb:>10} {forcen:>10} {derincmul:>10} {dermthd:>11} {splits}"
                 )
-            parameter_groups.append(
-                f"{pargpnme:<12} {inctyp:>10} {derinc:>10} {derinclb:>10} {forcen:>10} {derincmul:>10} {dermthd:>11} {splits}"
-            )
         parameter_groups = "\n".join(parameter_groups)
 
-        parameter_data = ["", "* parameter data"]
-        tied_parameters = OrderedDict()
-        npar = 0
-        nequation = 0
-        equations = []
-        secondary_equations = set()
-        for line, line_number in self._read_file(parameter_data_file):
-            if "=" in line:
-                words = line.split("=")
-                secondary_equations.add(words[0].strip())
-                equations.append(
-                    f"{words[0].strip():<15} = {words[1].replace(' ', '').strip()}"
-                )
-                nequation += 1
-                continue
-            else:
+        if parameter_data_file:
+            parameter_data = ["", "* parameter data"]
+            tied_parameters = OrderedDict()
+            npar = 0
+            nequation = 0
+            equations = []
+            secondary_equations = set()
+            parnmes = set()
+            for line, line_number in self._read_file(parameter_data_file):
+                if "=" in line:
+                    words = line.split("=")
+                    secondary_equations.add(words[0].strip())
+                    equations.append(
+                        f"{words[0].strip():<15} = {words[1].replace(' ', '').strip()}"
+                    )
+                    nequation += 1
+                    continue
                 npar += 1
-            (
-                parnme,
-                partrans,
-                parchglim,
-                parval1,
-                parlbnd,
-                parubnd,
-                pargp,
-                scale,
-                offset,
-                dercom,
-            ) = line.split()
-            if len(parnme) > 12:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        Line {line_number} of "{parameter_data_file}" has
-                        a parameter name that is longer than 12 characters.
-                        """
+                (
+                    parnme,
+                    partrans,
+                    parchglim,
+                    parval1,
+                    parlbnd,
+                    parubnd,
+                    pargp,
+                    scale,
+                    offset,
+                    dercom,
+                ) = line.split()
+                if len(parnme) > 12:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            Line {line_number} of "{parameter_data_file}" has
+                            a parameter name that is longer than 12 characters.
+                            """
+                        )
                     )
-                )
-            if parnme.lower() == "none":
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The {npar + 1} parameter name in data file
-                        "{parameter_data_file}" cannot be "none".
-                        """
+                if parnme.lower() == "none":
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            The {npar + 1} parameter name in data file
+                            "{parameter_data_file}" cannot be "none".
+                            """
+                        )
                     )
-                )
-            if partrans.lower() not in ["fixed", "tied", "log", "none"]:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The parameter transformation in data file
-                        "{parameter_data_file}" must be either "fixed",
-                        "tied_*", "log", or "none", not "{partrans}".
-                        """
+                if partrans.lower() not in ["fixed", "tied", "log", "none"]:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            The parameter transformation in data file
+                            "{parameter_data_file}" must be either "fixed",
+                            "tied_*", "log", or "none", not "{partrans}".
+                            """
+                        )
                     )
-                )
-            if parchglim.lower()[:8] not in ["factor", "relative", "absolute"]:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The {npar + 1} parameter change limit in data file
-                        "{parameter_data_file}" must be either "factor",
-                        "relative", or "absolute(N)", not "{parchglim}".
-                        """
+                if parchglim.lower()[:8] not in ["factor", "relative", "absolute"]:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            The {npar + 1} parameter change limit in data file
+                            "{parameter_data_file}" must be either "factor",
+                            "relative", or "absolute(N)", not "{parchglim}".
+                            """
+                        )
                     )
-                )
-            if pargp.lower() not in parameter_group_names:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The parameter data file has a parameter group name
-                        "{pargp}" that is not in the parameter group file.
-                        """
+                if pargp.lower() not in parameter_group_names:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            The parameter data file has a parameter group name
+                            "{pargp}" that is not in the parameter group file.
+                            """
+                        )
                     )
-                )
-            parval1 = float(parval1)
-            parlbnd = float(parlbnd)
-            parubnd = float(parubnd)
-            if parval1 < parlbnd or parval1 > parubnd:
-                raise ValueError(
-                    tsutils.error_wrapper(
-                        f"""
-                        The {npar + 1} parameter value {parval1} in data file
-                        "{parameter_data_file}" must be between the lower and
-                        upper bounds.
-                        """
+                parval1 = float(parval1)
+                parlbnd = float(parlbnd)
+                parubnd = float(parubnd)
+                if parval1 < parlbnd or parval1 > parubnd:
+                    raise ValueError(
+                        tsutils.error_wrapper(
+                            f"""
+                            The {npar + 1} parameter value {parval1} in data file
+                            "{parameter_data_file}" must be between the lower and
+                            upper bounds.
+                            """
+                        )
                     )
-                )
-            if partrans.lower()[:4] == "tied":
-                _, tiedto = partrans.split("_")
-                tied_parameters[parnme] = tiedto
-                partrans = "tied"
+                if partrans.lower()[:4] == "tied":
+                    _, tiedto = partrans.split("_")
+                    tied_parameters[parnme] = tiedto
+                    partrans = "tied"
 
-            parameter_data.append(
-                f"{parnme.lower():<15} {partrans.lower():>10} {parchglim.lower():>15} {parval1:>15f} {parlbnd:>15f} {parubnd:>15f} {pargp:>10} {scale:>10} {offset:>10} {dercom:>10}"
-            )
+                parameter_data.append(
+                    f"{parnme.lower():<15} {partrans.lower():>10} {parchglim.lower():>15} {parval1:>15f} {parlbnd:>15f} {parubnd:>15f} {pargp:>10} {scale:>10} {offset:>10} {dercom:>10}"
+                )
+                parnmes.add(parnme.lower())
+            delta = template_parameters - parnmes
+            if delta:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        f"""
+                        The parameter data file "{parameter_data_file}" does not
+                        contain the following parameters from the template file:
+                        {", ".join(delta)}.
+                        """
+                    )
+                )
 
-        control_data_equations = ""
-        if equations:
-            parameter_data.extend(equations)
-            control_data_equations = (
-                f"nparsec={len(secondary_equations)} nequation={nequation}"
-            )
+            control_data_equations = ""
+            if equations:
+                parameter_data.extend(equations)
+                control_data_equations = (
+                    f"nparsec={len(secondary_equations)} nequation={nequation}"
+                )
 
-        for parnme, tiedto in tied_parameters.items():
-            parameter_data.append(f"{parnme:<15} {tiedto:>10}")
+            for parnme, tiedto in tied_parameters.items():
+                parameter_data.append(f"{parnme:<15} {tiedto:>10}")
+        else:
+            npar = len(template_parameters)
+            control_data_equations = ""
+            parameter_data = []
 
         # Have to read the series and tables to get the number of observations
         # and observation groups here even though they are written later.
@@ -2450,12 +2483,55 @@ class Tables:
 
         observation_data = "\n".join(observation_data)
 
+        # Control data section
+        #
+        # Automatic user intervention and SVD truncation have to be handled
+        # first because they set different defaults for other keywords.
+        _doaui = kwds.get("doaui", "aui").lower()
+        if _doaui not in ["aui", "auid", "noaui"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    f"""
+                    The value for "doaui" must be either "aui", "auid", or
+                    "noaui", not "{_doaui}".
+                    """
+                )
+            )
+        if automatic_user_intervention is not None:
+            warning(
+                """
+                The "automatic_user_intervention" keyword is unused and replaced
+                with setting the "doaui" keyword to "aui", "auid", or "noaui".
+                """
+            )
+        if truncated_svd is not None:
+            warning(
+                """
+                The "truncated_svd" keyword is unused and replaced with
+                setting the "eigthresh" keyword to a small positive value.
+                """
+            )
+        eigthresh = kwds.get("eigthresh", 0)
+        if eigthresh > 0 and _doaui in ["aui", "auid"]:
+            raise ValueError(
+                tsutils.error_wrapper(
+                    """
+                    If the "eigthresh" keyword is set to a positive value,
+                    that activates the truncated SVD option and the "doaui"
+                    keyword must be set to "noaui".
+                    """
+                )
+            )
+
         nprior = 0
 
         # TSPROC has only one instruction file.
         ninsfle = 1
 
         # Second line of the control file
+        # rstfle is either "restart" or "norestart"
+        # pestmode is either "estimation", "pareto", "prediction", or
+        #     "regularization"
         rstfle = kwds.get("rstfle", "restart").lower()
         if rstfle not in ["restart", "norestart"]:
             raise ValueError(
@@ -2481,17 +2557,27 @@ class Tables:
         # Third line of the control file
         # npar calculated by reading the parameter data file
         # nobs calculated by reading the series and tables that are part of
-        #     list_output
+        #    list_output
         # npargp calculated by reading the parameter group file
         # nprior read from the parameter data file
         # nobsgp number of observation groups from the series and tables that
-        #     are part of list_output
+        #    are part of list_output
+        # maxcompdim is the maximum number of components in the Jacobian
+        # derzerolim is the derivative zero limit
+        # control_data_equations is the number of equations and secondary
+        #    equations
         _maxcompdim = kwds.get("maxcompdim", "")
         _derzerolim = kwds.get("derzerolim", "")
 
         # Fourth line of the control file
         # ntplfle count of template_file entries in write_pest_files
         # ninsfle count of new_instruction_file entries in write_pest_files
+        # precis is either "single" or "double"
+        # dpoint is either "point" or "nopoint"
+        # numcom
+        # jacfile
+        # messfile
+        # obsreref
         precis = kwds.get("precis", "single").lower()
         if precis not in ["single", "double"]:
             raise ValueError(
@@ -2527,6 +2613,14 @@ class Tables:
             )
 
         # Fifth line of the control file
+        # rlambda1
+        # rlamfac
+        # phiratsuf
+        # phiredlam
+        # numlam
+        # jacupdate
+        # lamforgive
+        # derforgive
         rlambda1 = float(kwds.get("rlambda1", 10.0))
         rlamfac = (
             float(kwds.get("rlamfac", -3.0))
@@ -2561,9 +2655,17 @@ class Tables:
             )
 
         # Sixth line of the control file
+        # relparmax
+        # facparmax
+        # facorig
+        # iboundstick
+        # upvecbend
+        # absparmax
         relparmax = float(kwds.get("relparmax", 5.0))
         facparmax = float(kwds.get("facparmax", 5.0))
         facorig = float(kwds.get("facorig", 1.0e-3))
+        _iboundstick = int(kwds.get("iboundstick", 0))
+        _upvecbend = int(kwds.get("upvecbend", 0))
         _absparmax = OrderedDict()
         _absparmax[1] = kwds.get("absparmax_1", None)
         _absparmax[2] = kwds.get("absparmax_2", None)
@@ -2578,10 +2680,14 @@ class Tables:
         _absparmax = [
             f"absparmax({key})={value}" for key, value in _absparmax.items() if value
         ]
-        _iboundstick = int(kwds.get("iboundstick", 0))
-        _upvecbend = int(kwds.get("upvecbend", 0))
 
         # Seventh line of the control file
+        # phiredswh
+        # noptswitch
+        # splitswh
+        # doaui
+        # dosenreuse
+        # boundscale
         phiredswh = float(kwds.get("phiredswh", 0.1))
         _noptswitch = int(kwds.get("noptswitch", 1))
         _splitswh = int(kwds.get("splitswh", 0))
@@ -2608,6 +2714,15 @@ class Tables:
             )
 
         # Eighth line of the control file
+        # noptmax
+        # phiredstp
+        # nphistp
+        # nphinored
+        # relparstp
+        # nrelpar
+        # phistopthresh
+        # lastrun
+        # phiabandon
         noptmax = int(kwds.get("noptmax", 30))
         phiredstp = float(kwds.get("phiredstp", 0.005))
         nphistp = int(kwds.get("nphistp", 4))
@@ -2619,6 +2734,16 @@ class Tables:
         _phiabandon = float(kwds.get("phiabandon", -1.0))
 
         # Ninth line of the control file
+        # icov
+        # icor
+        # ieig
+        # ires
+        # jcosave
+        # verboserec
+        # jcosaveitn
+        # reisaveitn
+        # parsaveitn
+        # parsaverun
         icov = int(kwds.get("icov", 1))
         icor = int(kwds.get("icor", 1))
         ieig = int(kwds.get("ieig", 1))
@@ -2696,6 +2821,7 @@ pcf
 {noptmax:>10d} {phiredstp:>10f} {nphistp:>10d} {nphinored:>10d} {relparstp:>10f} {nrelpar:>10d} {_phistopthresh:>10} {_lastrun:>10} {_phiabandon:>10}
 {icov:>10d} {icor:>10d} {ieig:>10d} {_ires:>10} {_jcosave:>10} {_verboserec:>10} {_jcosaveitn:>10} {_reisaveitn:>10} {_parsaveitn:>10} {_parsaverun:>10}"""
 
+        # Singular value decomposition section
         svdmode = int(kwds.get("svdmode", 1))
         maxsing = int(kwds.get("maxsing", npar))
         eigwrite = int(kwds.get("eigwrite", 1))
@@ -2706,6 +2832,7 @@ pcf
 {maxsing:>10d} {eigthresh:>15f}
 {eigwrite:>10d}"""
 
+        # LSQR section
         lsqrmode = int(kwds.get("lsqrmode", 1))
         lsqr_atol = float(kwds.get("lsqr_atol", 1.0e-4))
         lsqr_btol = float(kwds.get("lsqr_btol", 1.0e-4))
@@ -2719,33 +2846,62 @@ pcf
 {lsqr_atol:>10} {lsqr_btol:>10} {lsqr_conlim:>10} {lsqr_itnlim:>10}
 {lsqrwrite:>10}"""
 
-        with open(new_pest_control_file, "w", encoding="ascii") as fpo:
-            fpo.write(control_data)
-            if eigthresh > 0:
-                fpo.write(singular_value_decomposition)
-            fpo.write(lsqr)
-            fpo.write(parameter_groups)
-            fpo.write("\n".join(parameter_data))
-
-            fpo.write(observation_groups)
-
-            fpo.write(observation_data)
-
-            if model_command_line is None:
-                raise ValueError(
-                    warning(
-                        """
-                        The "model_command_line" keyword is required.
-                        """
-                    )
-                )
+        # Model command line section
+        if model_command_line is None:
+            model_command_line = ""
+        else:
             model_command_line = f"""
 * model command line
 {model_command_line}
 """
-            fpo.write(model_command_line)
 
-    def get_blocks(self, seq):
+        # Model input/output section
+        if isinstance(model_input_file, str):
+            model_input_file = [model_input_file]
+        nmodfle = len(model_input_file)
+        if nmodfle != ntplfle:
+            raise ValueError(
+                warning(
+                    f"""
+                    The number of model input files '{model_input_file}' does
+                    not match the number of template files {template_file}.
+                    """
+                )
+            )
+        model_input_output = """
+* model input/output
+"""
+        for mod, tpl in zip(model_input_file, template_file):
+            model_input_output += f"{tpl} {mod}\n"
+
+        with open(new_pest_control_file, "w", encoding="ascii") as fpo:
+            fpo.write("\n".join([i.rstrip() for i in control_data.split("\n")]))
+            if eigthresh > 0:
+                fpo.write(
+                    "\n".join(
+                        [
+                            i.rstrip() + "\n"
+                            for i in singular_value_decomposition.split("\n")
+                        ]
+                    )
+                )
+            fpo.write("\n".join([i.rstrip() for i in lsqr.split("\n")]))
+            fpo.write("\n".join([i.rstrip() for i in parameter_groups.split("\n")]))
+            fpo.write("\n".join([i.rstrip() for i in parameter_data]))
+
+            fpo.write("\n".join([i.rstrip() for i in observation_groups.split("\n")]))
+
+            fpo.write("\n".join([i.rstrip() for i in observation_data.split("\n")]))
+
+            fpo.write("\n".join([i.rstrip() for i in model_command_line.split("\n")]))
+
+            fpo.write("\n".join([i.rstrip() for i in model_input_output.split("\n")]))
+
+            fpo.write(
+                f"{new_instruction_file} {self.last_list_output_parameters['file']}\n"
+            )
+
+    def _get_blocks(self, seq):
         """Return blocks of lines between "START ..." lines.
 
         The block below from a tsproc file::
@@ -2808,7 +2964,7 @@ pcf
                     raise ValueError(
                         tsutils.error_wrapper(
                             f"""
-                            The block name "{words[1]}" in the END line at line {index+1} does
+                            The block name "{words[1]}" in the END line at line {index + 1} does
                             not match the block name "{block_name}" in the START line.
                             """
                         )
@@ -2817,7 +2973,7 @@ pcf
                 yield data, lindex
                 data = []
 
-    def run(self, infile, running_context=None):
+    def run(self, infile, running_context: Optional[str] = None):
         """Parse a tsproc file."""
         _not_rollable_duplicate_keywords = {
             "exceedance_time",
@@ -2839,7 +2995,7 @@ pcf
         blocks = []
         lnumbers = []
         for index, (group, lnumber) in enumerate(
-            self.get_blocks(self._read_file(infile))
+            self._get_blocks(self._read_file(infile))
         ):
             # Unroll the block.
 
@@ -3001,15 +3157,17 @@ pcf
                     context = True
                     if block_name == "SETTINGS":
                         print(f"# RUNNING SETTINGS block @ line {lnum}.")
-                    elif line[1] == "all" or line[1] == running_context:
+                    elif (
+                        line[1] in ["all", running_context] or running_context == "all"
+                    ):
                         print(
-                            f"# RUNNING following block @ line {lnum} because CONTEXT '{line[1]}' matches running CONTEXT."
+                            f"# RUNNING following block @ line {lnum} because CONTEXT '{line[1]}' matches running CONTEXT '{running_context}'."
                         )
                         runblocks.append(block)
                         nnumbers.append(lnum)
                     else:
                         print(
-                            f"# SKIPPING following block @ line {lnum} because CONTEXT '{line[1]}' doesn't match running CONTEXT."
+                            f"# SKIPPING following block @ line {lnum} because CONTEXT '{line[1]}' doesn't match running CONTEXT '{running_context}'."
                         )
                     break
             if context is False:
@@ -3068,7 +3226,7 @@ pcf
                         f"""
                         The available parameters for "{self.block_name}" at line
                         "{self.line_number}" are "{args + list(kwds.keys())}" but
-                        you gave "{set(args + list(kwds.keys()))-set(keys)}"
+                        you gave "{set(args + list(kwds.keys())) - set(keys)}"
                         """
                     )
                 )
@@ -3109,8 +3267,19 @@ pcf
             print(self.e_table_metadata)
 
 
-@cltoolbox.command()
 def run(infile, running_context: Optional[str] = None):
+    """
+    Parse and run a tsproc or tsblender file.
+
+    Parameters
+    ----------
+    infile : str
+        The tsproc file to parse.
+    running_context : str, optional
+        The context to run in the tsproc file.  The default is None which uses
+        the context specified in the SETTINGS block in the tsproc/tsblender
+        file.
+    """
     data = Tables()
     data.run(infile, running_context)
 
@@ -3123,6 +3292,18 @@ def main():
         import functiontrace
 
         functiontrace.trace()
+
+    @cltoolbox.command()
+    def about():
+        """Display version number and system information."""
+        tsutils.about(__name__)
+
+    @cltoolbox.command("run")
+    @tsutils.copy_doc(run)
+    def run_cli(infile, running_context=None):
+        """Parse a tsproc file."""
+        run(infile, running_context)
+
     cltoolbox.main()
 
 

@@ -3683,14 +3683,14 @@
 
  G_TABLE "BEC_hyd_indx04" ---->
    Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
-   MA3: CV of all daily flows                                                      63.01037
+   MA3: CV of all daily flows                                                      60.30208
    MA44: (Q10-Q90)[annual]/median annual flow                                     0.3792031
    ML13: CV of minimum monthly flows                                               26.62055
    ML14: Mean minimum daily flow/mean median annual flow                          0.6693528
 
  G_TABLE "BEC_hyd_indx05" ---->
    Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
-   MA3: CV of all daily flows                                                      63.01037
+   MA3: CV of all daily flows                                                      60.30208
    MA8: Q25/Q75 for all daily flows                                                1.533333
    MA41: Mean annual runoff                                                        1.033944
    ML14: Mean minimum daily flow/mean median annual flow                          0.6693528
@@ -3708,7 +3708,7 @@
 
  G_TABLE "BEC_hyd_indx07" ---->
    Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
-   MA3: CV of all daily flows                                                      63.01037
+   MA3: CV of all daily flows                                                      60.30208
    MA5: Mean daily flow/median daily flow                                          1.162458
    MA11: (Q25-Q75)/median daily flow                                              0.4324324
    MA41: Mean annual runoff                                                        1.033944
@@ -3720,8 +3720,8 @@
  G_TABLE "BEC_hyd_indx08" ---->
    Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
    MA2: Median of all daily flows                                                  37.00000
-   MA3: CV of all daily flows                                                      63.01037
-   MA4: CV of  log of all daily flows                                              32.74578
+   MA3: CV of all daily flows                                                      60.30208
+   MA4: CV of log of all daily flows                                               32.74578
    MA5: Mean daily flow/median daily flow                                          1.162458
    MA11: (Q25-Q75)/median daily flow                                              0.4324324
    MA41: Mean annual runoff                                                        1.033944
@@ -3743,7 +3743,7 @@
    FL1: Annual low flow pulse count; number of periods<25th percentile             7.400000
    FL2: CV of low flow pulse count                                                 79.61640
    FL3: Count of low flow spells (<5% of mean)/record length (yrs)                0.0000000E+00
-   MA3: CV of all daily flows                                                      63.01037
+   MA3: CV of all daily flows                                                      60.30208
    MA8: Q25/Q75 for all daily flows                                                1.533333
    MA41: Mean annual runoff                                                        1.033944
    MH10: Mean maximum monthly flow: October                                        67.40000

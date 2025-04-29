@@ -1,0 +1,18 @@
+
+ E_TABLE "esq6500" ---->
+   Flow           Time delay (days)    Time above (days)   Fraction of time above threshold
+   15.00000          0.000000            3562.184              0.9756734
+   18.00000          0.000000            3430.528              0.9396132
+   20.00000          0.000000            3319.842              0.9092966
+   24.00000          0.000000            2937.377              0.8045404
+   31.00000          0.000000            2203.905              0.6036441
+   40.00000          0.000000            1447.988              0.3966003
+   52.00000          0.000000            835.2217              0.2287652
+   65.00000          0.000000            476.7367              0.1305770
+   130.1000          0.000000            104.3426              2.8579181E-02
+
+ G_TABLE "sim_hyd_indx" ---->
+   Hydrologic Index and description (Olden and Poff, 2003)                          Value
+   ML1: Mean minimum monthly flow, January                                         25.479
+   ML13: CV of minimum monthly flows                                               40.098
+   ML15: Mean minimum annual flow / mean annual flow                                0.423

@@ -1,0 +1,374 @@
+
+Thu Apr 07 2022 07:43: processing information contained in TSPROC input file hi_test.inp....
+
+ Processing SETTINGS block....
+    context pest_input
+    DATE_FORMAT mm/dd/yyyy
+
+    *** Context has been overridden from the command line; CONTEXT = "pest_input" ***
+
+    Processing of SETTINGS block complete.
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE gsflow_sumq_05406500.ssf
+    SITE 05406500
+    NEW_SERIES_NAME sq6500i
+    Reading site sample file gsflow_sumq_05406500.ssf....
+    Series "sq6500i" successfully imported from file gsflow_sumq_05406500.ssf
+
+ Processing GET_MUL_SERIES_SSF block....
+    context all
+    FILE Q_BEC_BE_6500.ssf
+    SITE 05406500
+    NEW_SERIES_NAME oq6500i
+    Reading site sample file Q_BEC_BE_6500.ssf....
+    Series "oq6500i" successfully imported from file Q_BEC_BE_6500.ssf
+
+ Processing REDUCE_TIME_SPAN block....
+    context all
+    SERIES_NAME oq6500i
+    NEW_SERIES_NAME oq6500r
+    DATE_1 10/01/1990
+    DATE_2 09/30/2000
+    Series "oq6500r" successfully calculated.
+
+ Processing SERIES_CLEAN block....
+    context all
+    SERIES_NAME oq6500r
+    NEW_SERIES_NAME oq6500
+    SUBSTITUTE_VALUE delete
+    UPPER_ERASE_BOUNDARY .10000000
+    Series "oq6500" successfully calculated.
+
+ Processing NEW_TIME_BASE block....
+    context all
+    SERIES_NAME sq6500i
+    TB_SERIES_NAME oq6500
+    NEW_SERIES_NAME sq6500
+    New series "sq6500" successfully calculated.
+
+ Processing DIGITAL_FILTER block....
+    context all
+    FILTER_TYPE baseflow_separation
+    SERIES_NAME oq6500
+    NEW_SERIES_NAME foq6500
+    ALPHA .92500001
+    PASSES 3
+    CLIP_INPUT yes
+    CLIP_ZERO yes
+    Series "foq6500" successfully calculated.
+
+ Processing DIGITAL_FILTER block....
+    context all
+    FILTER_TYPE baseflow_separation
+    SERIES_NAME sq6500
+    NEW_SERIES_NAME fsq6500
+    ALPHA .92500001
+    PASSES 3
+    CLIP_INPUT yes
+    CLIP_ZERO yes
+    Series "fsq6500" successfully calculated.
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME bec_hyd_indx
+    DRAINAGE_AREA 41.600000
+    STREAM_CLASSIFICATION harsh_intermittent
+    FLOW_COMPONENT average_magnitude
+    FLOW_COMPONENT low_flow_magnitude
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx".
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME bec_hyd_indx02
+    DRAINAGE_AREA 41.600000
+    STREAM_CLASSIFICATION flashy_intermittent
+    FLOW_COMPONENT average_magnitude
+    FLOW_COMPONENT low_flow_magnitude
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx02".
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME bec_hyd_indx03
+    DRAINAGE_AREA 41.600000
+    STREAM_CLASSIFICATION snowmelt_perennial
+    FLOW_COMPONENT average_magnitude
+    FLOW_COMPONENT low_flow_magnitude
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx03".
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME bec_hyd_indx04
+    DRAINAGE_AREA 41.600000
+    STREAM_CLASSIFICATION snow_rain_perennial
+    FLOW_COMPONENT average_magnitude
+    FLOW_COMPONENT low_flow_magnitude
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx04".
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME bec_hyd_indx05
+    DRAINAGE_AREA 41.600000
+    STREAM_CLASSIFICATION groundwater_perennial
+    FLOW_COMPONENT average_magnitude
+    FLOW_COMPONENT low_flow_magnitude
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx05".
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME bec_hyd_indx06
+    DRAINAGE_AREA 41.600000
+    STREAM_CLASSIFICATION flashy_perennial
+    FLOW_COMPONENT average_magnitude
+    FLOW_COMPONENT low_flow_magnitude
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx06".
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME bec_hyd_indx07
+    DRAINAGE_AREA 41.600000
+    STREAM_CLASSIFICATION all_streams
+    FLOW_COMPONENT average_magnitude
+    FLOW_COMPONENT low_flow_magnitude
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx07".
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME bec_hyd_indx08
+    DRAINAGE_AREA 41.600000
+    STREAM_CLASSIFICATION all_streams
+    FLOW_COMPONENT average_magnitude
+    FLOW_COMPONENT low_flow_magnitude
+    MA 2
+    MA 3
+    MA 4
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx08".
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME bec_hyd_indx09
+    DRAINAGE_AREA 41.600000
+    STREAM_CLASSIFICATION groundwater_perennial
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "bec_hyd_indx09".
+
+ Processing HYDROLOGIC_INDICES block....
+    context all
+    SERIES_NAME oq6500
+    NEW_G_TABLE_NAME test_g_table
+    DRAINAGE_AREA 41.600000
+    MA 1
+    MA 2
+    MA 3
+    MA 4
+    MA 5
+    MA 6
+    MA 7
+    MA 8
+    MA 9
+    MA 10
+    MA 11
+    MA 12
+    MA 13
+    MA 14
+    MA 15
+    MA 16
+    MA 17
+    MA 18
+    MA 19
+    MA 20
+    MA 21
+    MA 22
+    MA 23
+    MA 24
+    MA 25
+    MA 26
+    MA 27
+    MA 28
+    MA 29
+    MA 30
+    MA 31
+    MA 32
+    MA 33
+    MA 34
+    MA 35
+    MA 36
+    MA 37
+    MA 38
+    MA 39
+    MA 40
+    MA 41
+    MA 42
+    MA 43
+    MA 44
+    MA 45
+    ML 1
+    ML 2
+    ML 3
+    ML 4
+    ML 5
+    ML 6
+    ML 7
+    ML 8
+    ML 9
+    ML 10
+    ML 11
+    ML 12
+    ML 13
+    ML 14
+    ML 15
+    ML 16
+    ML 17
+    ML 18
+    ML 19
+    ML 20
+    ML 21
+    ML 22
+    MH 1
+    MH 2
+    MH 3
+    MH 4
+    MH 5
+    MH 6
+    MH 7
+    MH 8
+    MH 9
+    MH 10
+    MH 11
+    MH 12
+    MH 13
+    MH 14
+    MH 15
+    MH 16
+    MH 17
+    MH 18
+    MH 19
+    MH 20
+    MH 21
+    MH 22
+    MH 23
+    MH 24
+    MH 25
+    MH 26
+    MH 27
+    FL 1
+    FL 2
+    FL 3
+    FH 1
+    FH 2
+    FH 3
+    FH 4
+    FH 5
+    FH 6
+    FH 7
+    FH 8
+    FH 9
+    FH 10
+    FH 11
+    DL 1
+    DL 2
+    DL 3
+    DL 4
+    DL 5
+    DL 6
+    DL 7
+    DL 8
+    DL 9
+    DL 10
+    DL 11
+    DL 12
+    DL 13
+    DL 14
+    DL 15
+    DL 16
+    DL 17
+    DL 18
+    DL 19
+    DL 20
+    DH 1
+    DH 2
+    DH 3
+    DH 4
+    DH 5
+    DH 6
+    DH 7
+    DH 8
+    DH 9
+    DH 10
+    DH 11
+    DH 12
+    DH 13
+    DH 14
+    DH 15
+    DH 16
+    DH 17
+    DH 18
+    DH 19
+    DH 20
+    DH 21
+    DH 22
+    DH 23
+    DH 24
+    TA 1
+    TA 2
+    TA 3
+    TL 1
+    TL 2
+    TL 3
+    TL 4
+    TH 1
+    TH 2
+    TH 3
+    RA 1
+    RA 2
+    RA 3
+    RA 4
+    RA 5
+    RA 6
+    RA 7
+    RA 8
+    RA 9
+
+    Hydrologic indices for time series "oq6500" stored in G_TABLE "test_g_table".
+
+ Processing LIST_OUTPUT block....
+    context all
+    FILE test_all.txt
+    G_TABLE_NAME test_g_table
+    Writing output file test_all.txt....
+    File test_all.txt written ok.
+
+ Processing LIST_OUTPUT block....
+    context all
+    FILE hi_all_classes_list_output_obs.txt
+    G_TABLE_NAME bec_hyd_indx
+    G_TABLE_NAME bec_hyd_indx02
+    G_TABLE_NAME bec_hyd_indx03
+    G_TABLE_NAME bec_hyd_indx04
+    G_TABLE_NAME bec_hyd_indx05
+    G_TABLE_NAME bec_hyd_indx06
+    G_TABLE_NAME bec_hyd_indx07
+    G_TABLE_NAME bec_hyd_indx08
+    G_TABLE_NAME bec_hyd_indx09
+    Writing output file hi_all_classes_list_output_obs.txt....
+    File hi_all_classes_list_output_obs.txt written ok.
+
+ - no more blocks to process.

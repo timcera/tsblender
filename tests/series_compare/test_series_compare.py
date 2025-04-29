@@ -3,34 +3,19 @@ import shutil
 from pathlib import Path
 
 import pandas as pd
-import pytest
 from pandas.testing import assert_frame_equal, assert_series_equal
 
 from tsblender import tsblender
 
 
-@pytest.fixture(scope="session")
-def tmppath(tmp_path_factory):
-    print(dir(tmp_path_factory))
-    tmp_file_path = tmp_path_factory.getbasetemp()
-    yield tmp_file_path
-    print("Removing tmp_path directory...")
-    if tmp_file_path.exists():
-        shutil.rmtree(tmp_file_path)
-
-
-def test_a(tmppath):
-    tpath = Path(tmppath) / "test"
+def test_series_compare(tmp_path):
+    tpath = Path(tmp_path) / "series_compare"
     shutil.copytree(
         os.path.dirname(os.path.abspath(__file__)), tpath, dirs_exist_ok=True
     )
     os.chdir(tpath)
     tsblender.run("tsproc_series_compare.inp")
 
-
-def test_series_compare(tmppath):
-    tpath = Path(tmppath) / "test"
-    os.chdir(tpath)
     tsblender_series = pd.read_csv(
         "data_out__series_compare.txt",
         index_col=0,
@@ -41,7 +26,7 @@ def test_series_compare(tmppath):
     )
 
     tsproc_series = pd.read_csv(
-        "tsproc_out/data_out__series_compare.txt",
+        "tsproc_reference/data_out__series_compare.txt",
         index_col=0,
         parse_dates=True,
         skiprows=9,
@@ -52,9 +37,14 @@ def test_series_compare(tmppath):
     assert_frame_equal(tsblender_series, tsproc_series, rtol=0.01, atol=0.01)
 
 
-def test_series_compare_values(tmppath):
-    tpath = Path(tmppath) / "test"
+def test_series_compare_values(tmp_path):
+    tpath = Path(tmp_path) / "series_compare"
+    shutil.copytree(
+        os.path.dirname(os.path.abspath(__file__)), tpath, dirs_exist_ok=True
+    )
     os.chdir(tpath)
+    tsblender.run("tsproc_series_compare.inp")
+
     tsblender_series = pd.read_csv(
         "data_out__series_compare_inputs.txt",
         parse_dates=[1],
@@ -70,7 +60,7 @@ def test_series_compare_values(tmppath):
     tsblender_series = tsblender_series.set_index([0, 1]).dropna(axis="index")
 
     tsproc_series = pd.read_csv(
-        "tsproc_out/data_out__series_compare_inputs.txt",
+        "tsproc_reference/data_out__series_compare_inputs.txt",
         parse_dates=[1],
         index_col=1,
         skiprows=3,

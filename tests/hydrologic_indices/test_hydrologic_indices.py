@@ -4,28 +4,17 @@ from io import StringIO
 from pathlib import Path
 
 import pandas as pd
-import pytest
 from pandas.testing import assert_series_equal
 
 from tsblender import tsblender
 
 
-@pytest.fixture(scope="session")
-def tmppath(tmp_path_factory):
-    print(dir(tmp_path_factory))
-    tmp_file_path = tmp_path_factory.getbasetemp()
-    yield tmp_file_path
-    print("Removing tmp_path directory...")
-    if tmp_file_path.exists():
-        shutil.rmtree(tmp_file_path)
-
-
-def test_hydrologic_indices_compare(tmppath):
-    tpath = Path(tmppath) / "test"
+def test_hydrologic_indices_compare(tmp_path):
+    tpath = Path(tmp_path) / "hydrologic_indices"
     shutil.copytree(os.path.dirname(os.path.abspath(__file__)), tpath)
     os.chdir(tpath)
     tsblender.run("tsproc_hydrologic_indices.inp")
-    with open("data_out__hydrologic_indices.txt") as f:
+    with open("data_out__hydrologic_indices.txt", encoding="ascii") as f:
         text = "\n".join([line for line in f if line[:3] == "   "])
 
     tsblender_series = pd.read_csv(
@@ -41,9 +30,10 @@ def test_hydrologic_indices_compare(tmppath):
     tsblender_series = tsblender_series[
         ~tsblender_series.index.duplicated(keep="first")
     ]
-    print(tsblender_series)
 
-    with open("tsproc_out/data_out__hydrologic_indices.txt") as f:
+    with open(
+        "tsproc_reference/data_out__hydrologic_indices.txt", encoding="ascii"
+    ) as f:
         text = "\n".join([line for line in f if line[:3] == "   "])
 
     tsproc_series = pd.read_csv(

@@ -1,0 +1,89 @@
+
+ E_TABLE "esq6500" ---->
+   Flow           Time delay (day)     Time above (day)    Fraction of time above threshold
+   15.00000         0.0000000E+00        3562.184              0.9754062
+   18.00000         0.0000000E+00        3430.528              0.9393560
+   20.00000         0.0000000E+00        3319.842              0.9090476
+   24.00000         0.0000000E+00        2937.377              0.8043202
+   31.00000         0.0000000E+00        2203.904              0.6034787
+   40.00000         0.0000000E+00        1447.987              0.3964916
+   52.00000         0.0000000E+00        835.2214              0.2287025
+   65.00000         0.0000000E+00        476.7368              0.1305413
+   130.1000         0.0000000E+00        104.3426              0.2857136E-01
+
+ G_TABLE "BEC_hyd_indx" ---->
+   Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
+   MA16: Mean monthly flow: May                                                    46.55484
+   MA22: Mean monthly flow: November                                               38.13667
+   MA34: CV of monthly flow: November                                              21.48024
+   ML1: Mean minimum monthly flow: January                                         28.20000
+   ML13: CV of minimum monthly flows                                               26.62055
+   ML15: Mean minimum annual flow/mean annual flow                                0.5814493
+
+ G_TABLE "BEC_hyd_indx02" ---->
+   Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
+   MA9: (Q10-Q90)/median daily flow                                               0.9459459
+   MA18: Mean monthly flow: July                                                   54.67419
+   MA21: Mean monthly flow: October                                                35.70000
+   MA37: IQR mean monthly/median monthly flow                                     0.4084905
+   ML6: Mean minimum monthly flow: June                                            33.70000
+   ML15: Mean minimum annual flow/mean annual flow                                0.5814493
+   ML16: Median minimum annual flow/median annual flow                            0.6799658
+   ML22: Mean annual minimum flow divided by catchment area                       0.5889423
+
+ G_TABLE "BEC_hyd_indx03" ---->
+   Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
+   MA29: CV of monthly flow: June                                                  45.29967
+   MA40: Skewness in monthly flows                                                0.1074841
+   ML13: CV of minimum monthly flows                                               26.62055
+   ML22: Mean annual minimum flow divided by catchment area                       0.5889423
+
+ G_TABLE "BEC_hyd_indx04" ---->
+   Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
+   MA3: CV of all daily flows                                                      60.30208
+   MA44: (Q10-Q90)[annual]/median annual flow                                     0.3792031
+   ML13: CV of minimum monthly flows                                               26.62055
+   ML14: Mean minimum daily flow/mean median annual flow                          0.6693528
+
+ G_TABLE "BEC_hyd_indx05" ---->
+   Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
+   MA3: CV of all daily flows                                                      60.30208
+   MA8: Q25/Q75 for all daily flows                                                1.533333
+   MA41: Mean annual runoff                                                        1.033944
+   ML14: Mean minimum daily flow/mean median annual flow                          0.6693528
+   ML16: Median minimum annual flow/median annual flow                            0.6799658
+   ML18: CV of (7-day minimum flow/mean annual)                                    16.78806
+
+ G_TABLE "BEC_hyd_indx06" ---->
+   Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
+   MA10: (Q20-Q80)/median daily flow                                              0.5675676
+   MA26: CV of monthly flow: March                                                 45.47674
+   MA41: Mean annual runoff                                                        1.033944
+   ML14: Mean minimum daily flow/mean median annual flow                          0.6693528
+   ML16: Median minimum annual flow/median annual flow                            0.6799658
+   ML17: 7-day minimum flow/mean annual flow                                      0.6088907
+
+ G_TABLE "BEC_hyd_indx07" ---->
+   Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
+   MA3: CV of all daily flows                                                      60.30208
+   MA5: Mean daily flow/median daily flow                                          1.162458
+   MA11: (Q25-Q75)/median daily flow                                              0.4324324
+   MA41: Mean annual runoff                                                        1.033944
+   ML4: Mean minimum monthly flow: April                                           36.00000
+   ML17: 7-day minimum flow/mean annual flow                                      0.6088907
+   ML18: CV of (7-day minimum flow/mean annual)                                    16.78806
+   ML21: CV of annual minimum flows                                                17.66089
+
+ G_TABLE "BEC_hyd_indx08" ---->
+   Hydrologic index for Oq6500 10/01/1990:09/30/2000                                Value
+   DH2: Annual maximum of 3-day mean of flow                                       215.8333
+   DL2: Annual minimum of 3-day mean of flow                                       25.06667
+   FH2: CV of high flow pulse count                                                26.19455
+   FL2: CV of low flow pulse count                                                 79.61640
+   MA2: Median of all daily flows                                                  37.00000
+   MH2: Mean maximum monthly flow: February                                        133.6000
+   ML2: Mean minimum monthly flow: February                                        27.50000
+   RA2: CV: mean of positive changes from one day to next (rise rate)              294.4932
+   TA2: Predictability of flow                                                     76.12735
+   TH2: CV: day-of-year of annual maximum                                          58.17974
+   TL2: CV: day-of-year of annual minimum                                          78.10994

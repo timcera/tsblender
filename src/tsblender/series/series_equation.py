@@ -5,6 +5,8 @@ try:
 except ImportError:
     from pydantic import validate_arguments as validate_call
 
+from numpy import *  # noqa: F403, F401
+
 
 def _series_equation(
     self,

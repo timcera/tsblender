@@ -2,30 +2,30 @@ myargs <- commandArgs(trailingOnly = TRUE)
 
 exponent <- 1.0
 
-tsproc_exe <- myargs[1]
-tsproc_inp <- "tsproc_test_series_compare.inp"
-tsproc_log <- "tsproc_test_series_compare.log"
+tsblender_exe <- "tsblender"
+tsblender_inp <- "tsproc_test_series_compare.inp"
+tsblender_log <- "tsproc_test_series_compare.log"
 
-DATE_1 <- as.POSIXlt("1990-10-02")
+DATE_1 <- as.POSIXlt("1990-10-01")
 DATE_2 <- as.POSIXlt("2000-10-01")
 
 read_ssf <- function(filename) {
+  v <- list()
 
-  v<-list()
+  v$info <- paste("Values imported from", filename)
+  v$header <- c("Site", "Date", "Time", "Value")
 
-  v$info<-paste("Values imported from",filename)
-  v$header<-c("Site","Date","Time","Value")
+  dat <- read.table(filename, colClasses = c(
+    "character", "character",
+    "character", "numeric"
+  ), header = FALSE)
+  colnames(dat) <- c("site", "date", "time", "value")
 
-  dat<-read.table(filename,colClasses=c("character","character",
-                                     "character","numeric"), header=F)
-  colnames(dat)<-c("site","date","time","value")
-
-  dat$datetime <- strptime(paste(dat$date, dat$time),format="%m/%d/%Y %H:%M:%S")
+  dat$datetime <- strptime(paste(dat$date, dat$time), format = "%m/%d/%Y %H:%M:%S")
   dat$julday <- as.numeric(dat$datetime)
-  v$dat<-dat
+  v$dat <- dat
 
   return(v)
-
 }
 
 my_obs_data <- read_ssf("Q_BEC_BE_6500.ssf")
@@ -36,21 +36,18 @@ my_control_file <- c(
   "  CONTEXT all",
   "  DATE_FORMAT mm/dd/yyyy",
   "END SETTINGS",
-
   "START GET_MUL_SERIES_SSF",
   "  CONTEXT all",
   "  FILE gsflow_sumq_05406500.ssf",
   "  SITE 05406500",
   "  NEW_SERIES_NAME Sq6500i",
   "END GET_MUL_SERIES_SSF",
-
   "START GET_MUL_SERIES_SSF",
   "  CONTEXT all",
   "  FILE Q_BEC_BE_6500.ssf",
   "  SITE 05406500",
   "  NEW_SERIES_NAME Oq6500i",
   "END GET_MUL_SERIES_SSF",
-
   "START REDUCE_TIME_SPAN",
   "  CONTEXT all",
   "  SERIES_NAME Oq6500i",
@@ -58,14 +55,12 @@ my_control_file <- c(
   "  DATE_1 10/01/1990",
   "  DATE_2 09/30/2000",
   "END REDUCE_TIME_SPAN",
-
   "START NEW_TIME_BASE",
   "  CONTEXT all",
   "  SERIES_NAME Sq6500i",
   "  TB_SERIES_NAME Oq6500r",
   "  NEW_SERIES_NAME Sq6500",
   "END NEW_TIME_BASE",
-
   "START SERIES_COMPARE",
   "  CONTEXT all",
   "  SERIES_NAME_SIM Sq6500",
@@ -80,13 +75,11 @@ my_control_file <- c(
   "  VOLUMETRIC_EFFICIENCY yes",
   "  EXPONENT 1",
   "END SERIES_COMPARE",
-
   "START LIST_OUTPUT",
   "  CONTEXT all",
   "  FILE test__series_compare.txt",
   "  C_TABLE_NAME c_series_compare",
   "END LIST_OUTPUT",
-
   "START LIST_OUTPUT",
   "  CONTEXT all",
   "  FILE test__series_compare_inputs.txt",
@@ -96,16 +89,19 @@ my_control_file <- c(
   "END LIST_OUTPUT"
 )
 
-writeLines(text=my_control_file,
-           con=tsproc_inp)
+writeLines(
+  text = my_control_file,
+  con = tsblender_inp
+)
 
-retval <- system2(tsproc_exe, args=paste(tsproc_inp, tsproc_log, sep=" "))
+retval <- system2(tsblender_exe, args = paste("run", tsblender_inp, sep = " "))
 
 tsp_result <- read.table("test__series_compare.txt",
-           skip=9,
-           as.is=TRUE,
-           header=FALSE,
-           sep=":")
+  skip = 9,
+  as.is = TRUE,
+  header = FALSE,
+  sep = ":"
+)
 
 colnames(tsp_result) <- c("Description", "value")
 
@@ -121,28 +117,28 @@ n <- length(simvals)
 mean_obs <- mean(obsvals)
 mean_sim <- mean(simvals)
 
-S0 <- sqrt( sum( ( obsvals - mean_obs )^2 ) / (n-1) )
+S0 <- sqrt(sum((obsvals - mean_obs)^2) / (n))
 
 BIAS <- sum(simvals - obsvals) / n
 
-STANDARD_ERROR <- sqrt( sum( ( simvals - obsvals)^2 ) / (n-1) )
+STANDARD_ERROR <- sqrt(sum((simvals - obsvals)^2) / (n))
 
 RELATIVE_BIAS <- BIAS / mean_obs
 
 RELATIVE_STD_ERROR <- STANDARD_ERROR / S0
 
-VOLUMETRIC_EFFICIENCY <- 1 - sum(abs(simvals - obsvals) ) / sum(obsvals)
+VOLUMETRIC_EFFICIENCY <- 1 - sum(abs(simvals - obsvals)) / sum(obsvals)
 
-numerator <- sum( ( simvals - obsvals )^2 )
-denominator <- sum ( ( obsvals - mean_obs )^2 )
+numerator <- sum((simvals - obsvals)^2)
+denominator <- sum((obsvals - mean_obs)^2)
 
 NASH_SUTCLIFFE <- 1. - numerator / denominator
 
-COEFFICIENT_OF_EFFICIENCY <- 1 - sum( abs( simvals - obsvals ) ^ exponent ) /
-                                 sum( abs( obsvals - mean_obs ) ^ exponent )
+COEFFICIENT_OF_EFFICIENCY <- 1 - sum(abs(simvals - obsvals)^exponent) /
+  sum(abs(obsvals - mean_obs)^exponent)
 
-INDEX_OF_AGREEMENT <- 1 - sum( abs( simvals - obsvals ) ^ exponent ) /
-                          sum( (abs( simvals - mean_obs )  + abs( obsvals - mean_obs ) ) ^ exponent )
+INDEX_OF_AGREEMENT <- 1 - sum(abs(simvals - obsvals)^exponent) /
+  sum((abs(simvals - mean_obs) + abs(obsvals - mean_obs))^exponent)
 
 Delta <- numeric(7)
 
@@ -154,8 +150,7 @@ Delta[5] <- tsp_result$value[grep("Coefficient of efficiency", tsp_result$Descri
 Delta[6] <- tsp_result$value[grep("Index of agreement", tsp_result$Description)] - INDEX_OF_AGREEMENT
 Delta[7] <- tsp_result$value[grep("Volumetric efficiency", tsp_result$Description)] - VOLUMETRIC_EFFICIENCY
 
-
-if( any( abs( Delta ) > 1e-4 ) ) {
+if (any(abs(Delta) > 1e-4)) {
   cat("FAIL")
 } else {
   cat("PASS")
