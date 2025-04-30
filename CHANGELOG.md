@@ -1,3 +1,9 @@
+## v103.3.0 (2025-04-29)
+
+### Feat
+
+- remove trailing spaces for list output and write pest files, tests, and docstrings
+
 ## v103.2.1 (2024-06-24)
 
 ### Fix
