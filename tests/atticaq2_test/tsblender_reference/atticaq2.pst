@@ -8132,19 +8132,19 @@ mtime17                   141.010679      560.000000 mtime
 mtime18                    56.021706      560.000000 mtime
 mtime19                    13.314882      560.000000 mtime
 mtime20                     1.821080      560.000000 mtime
-mduration1               1206.550000      560.000000 mduration
-mduration2                953.930000      560.000000 mduration
-mduration3                728.240000      560.000000 mduration
-mduration4                411.550000      560.000000 mduration
-mduration5                253.100000      560.000000 mduration
-mduration6                131.000000      560.000000 mduration
+mduration1                  5.000000      560.000000 mduration
+mduration2                  5.900000      560.000000 mduration
+mduration3                  7.500000      560.000000 mduration
+mduration4                 11.000000      560.000000 mduration
+mduration5                 14.000000      560.000000 mduration
+mduration6                 26.000000      560.000000 mduration
 mduration7                 65.000000      560.000000 mduration
-mduration8                 26.000000      560.000000 mduration
-mduration9                 14.000000      560.000000 mduration
-mduration10                11.000000      560.000000 mduration
-mduration11                 7.500000      560.000000 mduration
-mduration12                 5.900000      560.000000 mduration
-mduration13                 5.000000      560.000000 mduration
+mduration8                131.000000      560.000000 mduration
+mduration9                253.100000      560.000000 mduration
+mduration10               411.550000      560.000000 mduration
+mduration11               728.240000      560.000000 mduration
+mduration12               953.930000      560.000000 mduration
+mduration13              1206.550000      560.000000 mduration
 * model command line
 model.bat
 
