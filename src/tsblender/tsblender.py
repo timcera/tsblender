@@ -5,7 +5,7 @@ import os.path
 import re
 import sys
 from collections import OrderedDict
-from contextlib import suppress
+from contextlib import nullcontext, suppress
 from typing import Literal, Optional, Union
 
 import cltoolbox
@@ -27,6 +27,13 @@ except ImportError:
 from scipy import signal
 
 from tsblender.toolbox_utils.src.toolbox_utils import tsutils
+
+__all__ = ["about", "run"]
+
+
+def about():
+    """Print the version of the module."""
+    return tsutils.about(__name__)
 
 
 def warning(message: str):
@@ -86,7 +93,8 @@ class Tables:
 
         self.ofile = ""
 
-        self.last_list_output_parameters = {}
+        self.list_output_arguments = {}
+        self.last_list_output = ""
 
         self.funcs = {
             "SETTINGS": {
@@ -447,6 +455,7 @@ class Tables:
                     "V_TABLE_NAME": (),
                     "E_TABLE_NAME": (),
                     "G_TABLE_NAME": (),
+                    "ins_file_name": "",
                 },
                 "f": self.list_output,
             },
@@ -677,7 +686,6 @@ class Tables:
                 "args": [
                     "CONTEXT",
                     "NEW_PEST_CONTROL_FILE",
-                    "NEW_INSTRUCTION_FILE",
                     "TEMPLATE_FILE",
                     "MODEL_INPUT_FILE",
                     "PARAMETER_DATA_FILE",
@@ -685,6 +693,8 @@ class Tables:
                     "MODEL_COMMAND_LINE",
                 ],
                 "kwds": {
+                    "NEW_INSTRUCTION_FILE": (),
+                    "LIST_OUTPUT_FILE": (),
                     "OBSERVATION_SERIES_NAME": (),
                     "MODEL_SERIES_NAME": (),
                     "SERIES_WEIGHTS_EQUATION": (),
@@ -952,7 +962,9 @@ class Tables:
         series_name: str,
         new_series_name: str,
         filter_type: Literal["butterworth", "baseflow_separation"],
-        filter_pass: Optional[Literal["low", "high", "band"]] = None,
+        filter_pass: Optional[
+            Literal["low", "high", "band", "bandpass", "bandstop"]
+        ] = None,
         cutoff_frequency: Optional[float] = None,
         cutoff_frequency_1: Optional[float] = None,
         cutoff_frequency_2: Optional[float] = None,
@@ -964,15 +976,37 @@ class Tables:
         clip_zero: Union[bool, Literal["yes", "no"]] = False,
     ):
         """Filter a time series."""
+        clip_zero = self._normalize_bools(clip_zero)
+        clip_input = self._normalize_bools(clip_input)
         series = self._get_series(series_name)
         if filter_type.lower() in ("butterworth"):
+            if filter_pass is None:
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        "'filter_pass' must be specified to one of ['low', 'high', 'band', 'bandpass', 'bandstop'] for butterworth filter"
+                    )
+                )
+            if filter_pass in ["high", "low"] and (cutoff_frequency is None):
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        "'cutoff_frequency' must be specified high or low pass filters"
+                    )
+                )
+            if filter_pass in ["band", "bandpass", "bandstop"] and (
+                cutoff_frequency_1 is None or cutoff_frequency_2 is None
+            ):
+                raise ValueError(
+                    tsutils.error_wrapper(
+                        "'cutoff_frequency_1' and 'cutoff_frequency_2' must be specified for bandpass or bandstop filters"
+                    )
+                )
             scipy_pass = {
                 "low": "lowpass",
                 "high": "highpass",
                 "band": "bandpass",
                 "bandpass": "bandpass",
                 "bandstop": "bandstop",
-            }[filter_pass]
+            }.get(filter_pass, "lowpass")
             fs = {"H": 24, "T": 24 * 60, "D": 1, "M": 1 / 30.5, "A": 1 / 365.25}[
                 series.index.freqstr
             ]
@@ -980,11 +1014,14 @@ class Tables:
                 cf = cutoff_frequency
             else:
                 cf = [cutoff_frequency_1, cutoff_frequency_2]
-            if filter_type.lower() == "butterworth":
-                sos = signal.butter(stages, cf, scipy_pass, fs=fs, output="sos")
+            sos = signal.butter(stages, cf, scipy_pass, fs=fs, output="sos")
             filtered = signal.sosfilt(sos, series)
         elif filter_type.lower() in ("baseflow_separation"):
-            filtered = baseflow_sep.chapman(series)
+            filtered = baseflow_sep.lh(series)
+        if clip_zero:
+            filtered = filtered.clip(lower=0)
+        if clip_input:
+            filtered.loc[filtered > series] = series.loc[filtered > series]
         self._join(new_series_name, series=filtered)
 
     @validate_call
@@ -1374,14 +1411,14 @@ class Tables:
     def list_output(
         self,
         file,
-        series_format: Literal["long", "short", "ssf"] = "",
+        series_format: Literal["long", "short", "ssf"] = "long",
         series_name=(),
         s_table_name=(),
         c_table_name=(),
         v_table_name=(),
         e_table_name=(),
         g_table_name=(),
-        _ins_file="",
+        ins_file_name="",
     ):
         """
         List the output in the following order:
@@ -1392,14 +1429,18 @@ class Tables:
             - e_table: list all e_tables
             - g_table: list all g_tables
         """
-        self.last_list_output_parameters["file"] = file
-        self.last_list_output_parameters["series_name"] = series_name
-        self.last_list_output_parameters["series_format"] = series_format
-        self.last_list_output_parameters["s_table_name"] = s_table_name
-        self.last_list_output_parameters["c_table_name"] = c_table_name
-        self.last_list_output_parameters["v_table_name"] = v_table_name
-        self.last_list_output_parameters["e_table_name"] = e_table_name
-        self.last_list_output_parameters["g_table_name"] = g_table_name
+        instruction_file_arguments = {
+            "file": file,
+            "series_name": series_name,
+            "series_format": series_format,
+            "s_table_name": s_table_name,
+            "c_table_name": c_table_name,
+            "v_table_name": v_table_name,
+            "e_table_name": e_table_name,
+            "g_table_name": g_table_name,
+        }
+        self.list_output_arguments[file] = instruction_file_arguments
+        self.last_list_output = file
 
         if isinstance(series_name, str):
             series_name = [series_name]
@@ -1424,7 +1465,7 @@ class Tables:
                 )
             )
 
-        self.ofile = _ins_file or file
+        self.ofile = file
 
         fortran_format_data = {
             "table": FortranRecordWriter(r"(t5, a, t55, 1PG14.7, /)"),
@@ -1453,13 +1494,19 @@ class Tables:
             "v_table_row": FortranRecordWriter(r"('l', a, t6, '[', a, a, ']63:78', /)"),
         }
 
-        # Time series first
-        with open(self.ofile, "w", encoding="utf-8") as fp:
-            fp.write("pif $\n" if _ins_file else "")
+        with (
+            (
+                open(ins_file_name, mode="w", encoding="utf-8")
+                if ins_file_name
+                else nullcontext()
+            ) as ins_file,
+            open(self.ofile, mode="w", encoding="utf-8") as fp,
+        ):
+            # Time series first
+            if ins_file_name:
+                ins_file.write("pif $\n")
             for sern in series_name:
-                fp.write(
-                    "" if _ins_file else f'\n TIME_SERIES "{sern.lower()}" ---->\n'
-                )
+                fp.write(f'\n TIME_SERIES "{sern.lower()}" ---->\n')
                 series = self._get_series(sern.upper())
                 start, end = self.series_dates[sern.upper()]
                 line_skip = 3
@@ -1471,37 +1518,43 @@ class Tables:
                         time = index.strftime("%H:%M:%S")
                         if series.index.freqstr == "D":
                             time = "12:00:00"
+
+                        if ins_file_name:
+                            ins_file.write(
+                                fortran_format_instructions["series_long"]
+                                .write([f"{line_skip}", sern.lower(), f"{rowno + 1}"])
+                                .rstrip()
+                                + "\n"
+                            )
                         fp.write(
-                            fortran_format_instructions["series_long"]
-                            .write([f"{line_skip}", sern.lower(), f"{rowno + 1}"])
-                            .rstrip()
-                            + "\n"
-                            if _ins_file
-                            else fortran_format_data["series_long"]
+                            fortran_format_data["series_long"]
                             .write([sern.lower(), date, time, value])
                             .rstrip()
                             + "\n"
                         )
+
                     elif series_format == "short":
+                        if ins_file_name:
+                            ins_file.write(
+                                fortran_format_instructions["series_short"]
+                                .write([f"{line_skip}", sern, f"{rowno + 1}"])
+                                .rstrip()
+                                + "\n"
+                            )
                         fp.write(
-                            fortran_format_instructions["series_short"]
-                            .write([f"{line_skip}", sern, f"{rowno + 1}"])
-                            .rstrip()
-                            + "\n"
-                            if _ins_file
-                            else fortran_format_data["series_short"]
-                            .write([value])
-                            .rstrip()
+                            fortran_format_data["series_short"].write([value]).rstrip()
                             + "\n"
                         )
                     elif series_format == "ssf":
+                        if ins_file_name:
+                            ins_file.write(
+                                fortran_format_instructions["series_long"]
+                                .write([f"{line_skip}", sern, f"{rowno + 1}"])
+                                .rstrip()
+                                + "\n"
+                            )
                         fp.write(
-                            fortran_format_instructions["series_long"]
-                            .write([f"{line_skip}", sern, f"{rowno + 1}"])
-                            .rstrip()
-                            + "\n"
-                            if _ins_file
-                            else fortran_format_data["series_ssf"]
+                            fortran_format_data["series_ssf"]
                             .write([sern, value])
                             .rstrip()
                             + "\n"
@@ -1511,10 +1564,10 @@ class Tables:
             for s_tab in s_table_name:
                 st = self._get_s_table(s_tab.upper()).dropna()
                 stab_meta = self.s_table_metadata[s_tab.upper()]
+                if ins_file_name:
+                    ins_file.write("l8\n")
                 fp.write(
-                    "l8\n"
-                    if _ins_file
-                    else f"""
+                    f"""
  S_TABLE "{s_tab}" ---->
      Series for which data calculated:                 "{stab_meta["source_name"].lower()}"
      Starting date for data accumulation:              {stab_meta["start_date"].strftime("%Y-%m-%d")}
@@ -1524,20 +1577,20 @@ class Tables:
 """
                 )
                 for index, value in st.items():
+                    if ins_file_name:
+                        ins_file.write("1l {s_tab}\n")
                     fp.write(
-                        "1l {s_tab}  \n"
-                        if _ins_file
-                        else fortran_format_data["table"].write([index, value]).rstrip()
+                        fortran_format_data["table"].write([index, value]).rstrip()
                         + "\n"
                     )
 
             for c_tab in c_table_name:
                 stats = self._get_c_table(c_tab).dropna()
                 ctab = self.c_table_metadata[c_tab.upper()]
+                if ins_file_name:
+                    ins_file.write("l9\n")
                 fp.write(
-                    "l9\n"
-                    if _ins_file
-                    else f"""
+                    f"""
  C_TABLE "{c_tab}" ---->
     Observation time series name:                     "{ctab["obs_name"].lower()}"
     Simulation time series name:                      "{ctab["sim_name"].lower()}"
@@ -1549,37 +1602,39 @@ class Tables:
 """
                 )
                 for index, value in stats.items():
+                    if ins_file_name:
+                        ins_file.write(
+                            fortran_format_instructions["table"]
+                            .write([index, value])
+                            .rstrip()
+                            + "\n"
+                        )
                     fp.write(
-                        fortran_format_instructions["table"]
-                        .write([index, value])
-                        .rstrip()
-                        + "\n"
-                        if _ins_file
-                        else fortran_format_data["table"].write([index, value]).rstrip()
+                        fortran_format_data["table"].write([index, value]).rstrip()
                         + "\n"
                     )
 
             for v_tab in v_table_name:
                 fp.write(
-                    ""
-                    if _ins_file
-                    else f"""
+                    f"""
  V_TABLE "{v_tab}" ---->
      Volumes calculated from series "{self.v_table_metadata[v_tab.upper()]["source_name"]}" are as follows:-
 """
                 )
                 v_table = self._get_v_table(v_tab)
                 line_skip = 4
-                vrow = 0
-                for index, value in v_table.dropna().items():
-                    vrow += 1
+                for vrow, (index, value) in enumerate(
+                    v_table.dropna().items(), start=1
+                ):
+                    if ins_file_name:
+                        ins_file.write(
+                            fortran_format_instructions["v_table_row"]
+                            .write([f"{line_skip}", v_tab.lower(), f"{vrow}"])
+                            .rstrip()
+                            + "\n"
+                        )
                     fp.write(
-                        fortran_format_instructions["v_table_row"]
-                        .write([f"{line_skip}", v_tab.lower(), f"{vrow}"])
-                        .rstrip()
-                        + "\n"
-                        if _ins_file
-                        else fortran_format_data["v_table"]
+                        fortran_format_data["v_table"]
                         .write(
                             [
                                 index[0].strftime(self.date_format),
@@ -1601,29 +1656,27 @@ class Tables:
                 units = etab_meta["exceedance_time_units"]
                 direction = {"over": "above", "under": "below"}[etab_meta["under_over"]]
                 fp.write(
-                    ""
-                    if _ins_file
-                    else f"""
+                    f"""
  E_TABLE "{e_tab_name.lower()}" ---->
 """
                 )
                 fp.write(
-                    ""
-                    if _ins_file
-                    else fortran_format_data["e_table_header"]
+                    fortran_format_data["e_table_header"]
                     .write([units, direction, units, direction])
                     .rstrip()
                     + "\n"
                 )
                 line_skip = 4
                 for row, (index, value) in enumerate(e_tab.dropna().items(), start=1):
+                    if ins_file_name:
+                        ins_file.write(
+                            fortran_format_instructions["e_table_row"]
+                            .write([f"{line_skip}", e_tab_name.lower(), f"{row}"])
+                            .rstrip()
+                            + "\n"
+                        )
                     fp.write(
-                        fortran_format_instructions["e_table_row"]
-                        .write([f"{line_skip}", e_tab_name.lower(), f"{row}"])
-                        .rstrip()
-                        + "\n"
-                        if _ins_file
-                        else FortranRecordWriter(
+                        FortranRecordWriter(
                             "t2, g14.7, t20, g14.7, t40, g14.7, t63, g14.7, /"
                         )
                         .write([index[0], index[1], value, et_tot[index]])
@@ -1643,9 +1696,7 @@ class Tables:
                 g_table = g_table.loc[sindex]
 
                 fp.write(
-                    ""
-                    if _ins_file
-                    else f"""
+                    f"""
  G_TABLE "{g_tab}" ---->
 """
                 )
@@ -1655,9 +1706,7 @@ class Tables:
                     #    Flow-duration curve for series "mflow" (11/08/8672 to 11/07/8693)                     Value
                     #    99.50% of flows exceed:                                                         4.912684
                     fp.write(
-                        ""
-                        if _ins_file
-                        else FortranRecordWriter(
+                        FortranRecordWriter(
                             "t4, 'Flow duration curve for ', a, ' ', a, ':', a, t85, 'Value', /"
                         )
                         .write(
@@ -1676,13 +1725,15 @@ class Tables:
                     for row, (index, value) in enumerate(
                         g_table.dropna().items(), start=1
                     ):
+                        if ins_file_name:
+                            ins_file.write(
+                                fortran_format_instructions["g_table_row"]
+                                .write([f"{line_skip}", g_tab.lower(), f"{row}"])
+                                .rstrip()
+                                + "\n"
+                            )
                         fp.write(
-                            fortran_format_instructions["g_table_row"]
-                            .write([f"{line_skip}", g_tab.lower(), f"{row}"])
-                            .rstrip()
-                            + "\n"
-                            if _ins_file
-                            else fortran_format_data["g_table_row"]
+                            fortran_format_data["g_table_row"]
                             .write([f"{index:>6.02%} of flows exceed:", value])
                             .rstrip()
                             + "\n"
@@ -1693,9 +1744,7 @@ class Tables:
                     #    Hydrologic Index and description (Olden and Poff, 2003)                               Value
                     #    MA16: Mean monthly flow May-Aug:                                                      4.912684
                     fp.write(
-                        ""
-                        if _ins_file
-                        else FortranRecordWriter(
+                        FortranRecordWriter(
                             "t4, 'Hydrologic index for ', a, ' ', a, ':', a, t85, 'Value', /"
                         )
                         .write(
@@ -1711,13 +1760,15 @@ class Tables:
 
                     line_skip = 4
                     for row, (index, value) in enumerate(g_table.items(), start=1):
+                        if ins_file_name:
+                            ins_file.write(
+                                fortran_format_instructions["g_table_row"]
+                                .write([f"{line_skip}", g_tab.lower(), f"{row}"])
+                                .rstrip()
+                                + "\n"
+                            )
                         fp.write(
-                            fortran_format_instructions["g_table_row"]
-                            .write([f"{line_skip}", g_tab.lower(), f"{row}"])
-                            .rstrip()
-                            + "\n"
-                            if _ins_file
-                            else FortranRecordWriter("t4, a, t82, g14.7, /")
+                            FortranRecordWriter("t4, a, t82, g14.7, /")
                             .write([index, value])
                             .rstrip()
                             + "\n"
@@ -2124,12 +2175,13 @@ class Tables:
     def write_pest_files(
         self,
         new_pest_control_file,
-        new_instruction_file,
         template_file,
         model_input_file,
         parameter_data_file,
         parameter_group_file,
         model_command_line,
+        new_instruction_file=(),
+        list_output_file=(),
         observation_series_name=(),
         model_series_name=(),
         series_weights_equation=(),
@@ -2155,9 +2207,6 @@ class Tables:
         **kwds,
     ):
         """Write PEST control file and instruction file."""
-        self.last_list_output_parameters["_ins_file"] = new_instruction_file
-        self.list_output(**self.last_list_output_parameters)
-
         # Need to process the parameter data file, parameter group file, and
         # the observation data first to get information required in the control
         # data section.
@@ -2283,6 +2332,7 @@ class Tables:
                 )
         parameter_groups = "\n".join(parameter_groups)
 
+        control_data_equations = ""
         if parameter_data_file:
             parameter_data = ["", "* parameter data"]
             tied_parameters = OrderedDict()
@@ -2394,18 +2444,18 @@ class Tables:
                     )
                 )
 
-            control_data_equations = ""
             if equations:
                 parameter_data.extend(equations)
                 control_data_equations = (
                     f"nparsec={len(secondary_equations)} nequation={nequation}"
                 )
 
-            for parnme, tiedto in tied_parameters.items():
-                parameter_data.append(f"{parnme:<15} {tiedto:>10}")
+            parameter_data.extend(
+                f"{parnme:<15} {tiedto:>10}"
+                for parnme, tiedto in tied_parameters.items()
+            )
         else:
             npar = len(template_parameters)
-            control_data_equations = ""
             parameter_data = []
 
         # Have to read the series and tables to get the number of observations
@@ -2523,11 +2573,6 @@ class Tables:
                 )
             )
 
-        nprior = 0
-
-        # TSPROC has only one instruction file.
-        ninsfle = 1
-
         # Second line of the control file
         # rstfle is either "restart" or "norestart"
         # pestmode is either "estimation", "pareto", "prediction", or
@@ -2566,6 +2611,7 @@ class Tables:
         # derzerolim is the derivative zero limit
         # control_data_equations is the number of equations and secondary
         #    equations
+        nprior = 0
         _maxcompdim = kwds.get("maxcompdim", "")
         _derzerolim = kwds.get("derzerolim", "")
 
@@ -2578,6 +2624,11 @@ class Tables:
         # jacfile
         # messfile
         # obsreref
+
+        if isinstance(new_instruction_file, str):
+            new_instruction_file = [new_instruction_file]
+        ninsfle = len(new_instruction_file)
+
         precis = kwds.get("precis", "single").lower()
         if precis not in ["single", "double"]:
             raise ValueError(
@@ -2897,12 +2948,25 @@ pcf
 
             fpo.write("\n".join([i.rstrip() for i in model_input_output.split("\n")]))
 
-            fpo.write(
-                f"{new_instruction_file} {self.last_list_output_parameters['file']}\n"
-            )
+            loop_list_output_arguments = {}
+            if len(new_instruction_file) == 1:
+                loop_list_output_arguments[self.last_list_output] = (
+                    self.list_output_arguments[self.last_list_output]
+                )
+            else:
+                loop_list_output_arguments = self.list_output_arguments
+
+            for ins, (key, value) in zip(
+                new_instruction_file, loop_list_output_arguments.items()
+            ):
+                value.update({"ins_file_name": ins})
+                self.list_output(**value)
+
+                fpo.write(f"{ins} {value['file']}\n")
 
     def _get_blocks(self, seq):
-        """Return blocks of lines between "START ..." lines.
+        """
+        Return blocks of lines between "START ..." lines.
 
         The block below from a tsproc file::
 
@@ -3041,8 +3105,7 @@ pcf
                 if line[1].lower() == "write_pest_files":
                     wpf = True
 
-                if len(line) > maxl:
-                    maxl = len(line)
+                maxl = max(maxl, len(line))
 
             # Have to make sure that the "WRITE_PEST_FILES" block has *_weigth_min_max
             # keywords after every *_equation keyword.
@@ -3293,10 +3356,12 @@ def main():
 
         functiontrace.trace()
 
-    @cltoolbox.command()
-    def about():
+    @cltoolbox.command("about")
+    def about_cli():
         """Display version number and system information."""
-        tsutils.about(__name__)
+        from pprint import pprint
+
+        pprint(about())
 
     @cltoolbox.command("run")
     @tsutils.copy_doc(run)

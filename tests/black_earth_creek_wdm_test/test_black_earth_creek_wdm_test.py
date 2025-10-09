@@ -17,7 +17,8 @@ def test_files(tmp_path):
             file1_info = file1.readlines()
         with open(str(Path("tsblender_reference") / fname)) as file2:
             file2_info = file2.readlines()
-
+        print(file1_info[:10])
+        print(file2_info[:10])
         diff = difflib.unified_diff(
             file1_info, file2_info, fromfile="file1.py", tofile="file2.py", lineterm=""
         )

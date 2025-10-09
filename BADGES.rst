@@ -18,11 +18,6 @@
     :target: https://pypi.python.org/pypi/tsblender/
     :height: 20
 
-.. image:: https://img.shields.io/pypi/dd/tsblender.svg
-    :alt: tsblender downloads
-    :target: https://pypi.python.org/pypi/tsblender/
-    :height: 20
-
 .. image:: https://img.shields.io/pypi/pyversions/tsblender
     :alt: PyPI - Python Version
     :target: https://pypi.org/project/tsblender/
