@@ -1,15 +1,33 @@
 [build-system]
 build-backend = "setuptools.build_meta"
 requires = [
-    "setuptools>=45",
-    "setuptools_scm[toml]>=6.2",
-    "wheel"
+    "setuptools-scm[simple]>=8",
+    "setuptools>=80"
 ]
 
 [project]
-name = "tsblender"
-dynamic = ["version", "readme"]
-description = "Drop-in replacement for TSPROC that is a utility for inverse modeling with PEST."
+authors = [
+    {email = "tim@cerazone.net", name = "Tim Cera"}
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: End Users/Desktop",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+] # Get strings from http://pypi.python.org/pypi?%3Aaction=list_classifiers
 dependencies = [
     "cltoolbox >= 1.0.0",
     "dateparser",
@@ -27,28 +45,8 @@ dependencies = [
     "tstoolbox >= 106.0.0",
     "xlsxwriter"
 ]
-authors = [
-    {name = "Tim Cera", email = "tim@cerazone.net"}
-]
-classifiers = [
-    "Development Status :: 5 - Production/Stable",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "Intended Audience :: End Users/Desktop",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: BSD License",
-    "Natural Language :: English",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3 :: Only",
-    "Topic :: Scientific/Engineering",
-    "Topic :: Scientific/Engineering :: Information Analysis",
-    "Topic :: Software Development :: Libraries :: Python Modules"
-]
+description = "Drop-in replacement for TSPROC that is a utility for inverse modeling with PEST."
+dynamic = ["readme", "version"]
 keywords = [
     "baseflow",
     "cli-app",
@@ -59,15 +57,17 @@ keywords = [
     "tsproc"
 ]
 license = {text = "BSD-3-Clause"}
-requires-python = ">=3.9"
+name = "tsblender"
+readme = "README.rst"
+requires-python = ">=3.10"
 
 [project.scripts]
 tsblender = "tsblender.tsblender:main"
 
 [project.urls]
+bitbucket = "https://bitbucket.org/timcera/tsblender/src/main/"
 documentation = "https://timcera.bitbucket.io/tsblender/docs/index.html#tsblender-documentation"
 github = "https://github.com/timcera/tsblender"
-bitbucket = "https://bitbucket.org/timcera/tsblender/src/main/"
 
 [tool.commitizen]
 name = "cz_conventional_commits"
@@ -83,8 +83,8 @@ profile = "black"
 testpaths = ["tests"]
 
 [tool.setuptools]
-license-files = ["LICENSE.txt"]
 include-package-data = true
+license-files = ["LICENSE.txt"]
 
 [tool.setuptools.dynamic]
 readme = {file = "README.rst"}
@@ -92,5 +92,3 @@ version = {file = "VERSION"}
 
 [tool.setuptools.packages.find]
 where = ["src"]
-
-[tool.setuptools_scm]
