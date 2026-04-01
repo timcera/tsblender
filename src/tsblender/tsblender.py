@@ -1,9 +1,12 @@
 """Collection of functions for the manipulation of time series."""
 
+import argparse
 import datetime
 import os.path
 import re
+import shutil
 import sys
+import tempfile
 from collections import OrderedDict
 from contextlib import nullcontext, suppress
 from typing import Literal, Optional, Union
@@ -977,7 +980,7 @@ class Tables:
         """Filter a time series."""
         clip_zero = self._normalize_bools(clip_zero)
         clip_input = self._normalize_bools(clip_input)
-        series = self._get_series(series_name)
+        series = self._get_series(series_name).squeeze().dropna()
         if filter_type.lower() in ("butterworth"):
             if filter_pass is None:
                 raise ValueError(
@@ -3366,6 +3369,179 @@ def run(infile, running_context: Optional[str] = None):
     data.run(infile, running_context)
 
 
+def update_params(pest_par: str, params_dat: str):
+    """
+    Update a TSPROC/tsblender parameter file with PEST optimized parameters.
+
+    The final optimized parameters from PEST are stored in a *.par file with
+    a format similar to::
+
+      single point
+             agws0     1.00000000         1.000000         0.000000
+            lzsn01    0.108560470         1.000000         0.000000
+            lzsn02     4.33416300         1.000000         0.000000
+            lzsn03     4.33416300         1.000000         0.000000
+            ...
+
+    The PEST *.par file is read in and used to update the parameter file for
+    TSPROC/tsblender which would convert this::
+
+      agws0  fixed       factor  1.00000000 0.005  1.0  agwsgroup 1.0  0.0  1
+      lzsn01 log         factor 0.200000000 0.05   0.2  lzsngroup 1.0  0.0  1
+      lzsn02 tied_lzsn07 factor  3.70043190 2.0    10.0 lzsngroup 1.0  0.0  1
+      lzsn03 tied_lzsn07 factor  3.70043190 2.0    10.0 lzsngroup 1.0  0.0  1
+      ...
+
+    to this::
+
+      agws0  fixed       factor  1.00000000 0.005  1.0  agwsgroup 1.0  0.0  1
+      lzsn01 log         factor 0.108560470 0.05   0.2  lzsngroup 1.0  0.0  1
+      lzsn02 tied_lzsn07 factor  4.33416300 2.0    10.0 lzsngroup 1.0  0.0  1
+      lzsn03 tied_lzsn07 factor  4.33416300 2.0    10.0 lzsngroup 1.0  0.0  1
+      ...
+
+    The min and max columns (columns 5 and 6) are adjusted if the incoming
+    value is outside the range (very rare).
+
+    Parameters
+    ----------
+    pest_par
+        The PEST parameter file that will be used to update the
+        TSPROC/tsblender parameter file.
+    params_dat
+        The TSPROC/tsblender parameter file which will be UPDATED IN-PLACE!
+        Make a backup copy if you want to preserve the old values.
+    """
+    pest_par_con = {}
+    with open(pest_par, encoding="ascii") as fp_pest_par:
+        for line in fp_pest_par:
+            words = line.split()
+            if len(words) == 0:
+                continue
+            try:
+                pest_par_con[words[0].lower()] = float(words[1])
+            except ValueError:
+                continue
+
+    fd, temp_path = tempfile.mkstemp()
+    with open(temp_path, "w", encoding="ascii") as tfile:
+        with open(params_dat, encoding="ascii") as fp_params_dat:
+            for line in fp_params_dat:
+                words = line.split()
+                if len(words) == 0:
+                    tfile.write("\n")
+                elif words[0].lower() in pest_par_con:
+                    newval = pest_par_con[words[0].lower()]
+                    minval = min(newval, float(words[4]))
+                    maxval = max(newval, float(words[5]))
+                    tfile.write(
+                        f"{words[0]:12} {words[1]:17} {words[2]:8} {newval:20G} {minval:15G} {maxval:15G} {words[6]:12} {float(words[7]):15G} {float(words[8]):15G} {int(words[9]):5}\n"
+                    )
+                else:
+                    tfile.write(line.strip() + "\n")
+
+    os.close(fd)
+    shutil.copyfile(temp_path, params_dat)
+
+
+def list_bounded_parameters(pest_par: str, params_dat: str):
+    """
+    List bounded parameters in a TSPROC/tsblender parameter file.
+
+    This command DOES NOT update the TSPROC/tsblender parameter file.
+
+    This command just lists to the standard output the parameters that would be
+    bounded by a limit in the TSPROC/tsblender file.
+
+    Parameters
+    ----------
+    pest_par
+        The PEST parameter file that will be used to update the
+        TSPROC/tsblender parameter file.
+    params_dat
+        The TSPROC/tsblender parameter file that holds the bounds that the
+        optimized parameters in the PEST parameter file will be compared to.
+    """
+    pest_par_con = {}
+    with open(pest_par) as fp_pest_par:
+        for line in fp_pest_par:
+            words = line.split()
+            if len(words) == 0:
+                continue
+            try:
+                pest_par_con[words[0].lower()] = float(words[1])
+            except ValueError:
+                continue
+
+    collect = []
+    with open(params_dat) as fp_params_dat:
+        for line in fp_params_dat:
+            words = line.split()
+            if len(words) == 0:
+                continue
+            elif words[0].lower() in pest_par_con:
+                newval = pest_par_con[words[0].lower()]
+                if newval == float(words[4]):
+                    collect.append(
+                        f"The optimized '{words[0].lower()}' is equal to the lower bound of {float(words[4])}"
+                    )
+                if newval == float(words[5]):
+                    collect.append(
+                        f"The optimized '{words[0].lower()}' is equal to the upper bound of {float(words[5])}"
+                    )
+
+    collect = sorted(collect)
+    print("\n".join(collect))
+
+
+def update_weights(pest_rec: str, tsproc_dat: str, target_weight: float = 100):
+    """
+    Update weights in a TSPROC/tsblender script file with PEST weights.
+
+    Parameters
+    ----------
+    pest_rec
+        The PEST record file (*.rec) that will be used to update the
+        weights in TSPROC/tsblender script file.
+    tsproc_dat
+        The TSPROC/tsblender script file.
+    target_weight
+        The target weight to scale the PEST weights to.  Default is 100.
+    """
+    with open(pest_rec, encoding="ascii") as fp_pest_rec:
+        phigp = {}
+        for line in fp_pest_rec:
+            if "Contribution" in line:
+                nline = line.replace('"', "")
+                words = nline.split()
+                phigp[words[3].lower()] = float(words[5])
+    factor = {key: (target_weight / val) ** 0.5 for key, val in phigp.items()}
+
+    with open(tsproc_dat, encoding="ascii") as fp_tsproc_dat:
+        obs_group_name = re.compile(r"MODEL_.*_NAME (.*)", re.IGNORECASE)
+        old_weight = re.compile(r"(.*_WEIGHTS_EQUATION) (.*)", re.IGNORECASE)
+        new_tsproc = []
+        for nline in fp_tsproc_dat:
+            line = nline.rstrip()
+            if obs_group_name.search(line):
+                key = (obs_group_name.search(line).group(1)).lower()
+            if old_weight.search(line):
+                weight_type = old_weight.search(line).group(1)
+                try:
+                    weight = float(old_weight.search(line).group(2))
+                    weight_str = f"{weight * factor.get(key, 1.0)}"
+                except ValueError:
+                    weight_str = (
+                        f"{old_weight.search(line).group(2)} * {factor.get(key, 1.0)}"
+                    )
+                new_tsproc.append(f"{weight_type} {weight_str}")
+            else:
+                new_tsproc.append(line)
+
+    with open(tsproc_dat, mode="w", encoding="ascii") as fp_new_tsproc_dat:
+        fp_new_tsproc_dat.write("\n".join(new_tsproc))
+
+
 def main():
     """Main function for command line."""
     if not os.path.exists("debug_tsblender"):
@@ -3387,6 +3563,26 @@ def main():
     def run_cli(infile, running_context=None):
         """Parse a tsproc file."""
         run(infile, running_context)
+
+    @cltoolbox.command("update_params", formatter_class=argparse.RawTextHelpFormatter)
+    @tsutils.copy_doc(update_params)
+    def update_params_cli(pest_par, params_dat):
+        """Update a TSPROC/tsblender parameter file with PEST optimized parameters."""
+        update_params(pest_par, params_dat)
+
+    @cltoolbox.command(
+        "list_bounded_parameters", formatter_class=argparse.RawTextHelpFormatter
+    )
+    @tsutils.copy_doc(list_bounded_parameters)
+    def list_bounded_parameters_cli(pest_par, params_dat):
+        """List bounded parameters in a TSPROC/tsblender parameter file."""
+        list_bounded_parameters(pest_par, params_dat)
+
+    @cltoolbox.command("update_weights", formatter_class=argparse.RawTextHelpFormatter)
+    @tsutils.copy_doc(update_weights)
+    def update_weights_cli(pest_rec, tsproc_dat, target_weight: float = 100):
+        """Update weights in a TSPROC/tsblender script file with PEST weights."""
+        update_weights(pest_rec, tsproc_dat, target_weight)
 
     cltoolbox.main()
 

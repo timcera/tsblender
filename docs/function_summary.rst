@@ -7,4 +7,7 @@ Python API Function Summary
     :toctree: _function_autosummary
 
     tsblender.tsblender.about
+    tsblender.tsblender.list_bounded_parameters
     tsblender.tsblender.run
+    tsblender.tsblender.update_params
+    tsblender.tsblender.update_weights
