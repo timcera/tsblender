@@ -14,7 +14,6 @@ import pandas as pd
 from dateutil.parser import parse
 from fortranformat import FortranRecordWriter
 from hydrotoolbox import hydrotoolbox
-from hydrotoolbox.hydrotoolbox import baseflow_sep
 from matplotlib import pyplot as plt
 from pydantic import Field
 from typing_extensions import Annotated
@@ -181,9 +180,9 @@ class Tables:
                         0.5,
                     ],
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.flow_duration,
             },
@@ -199,9 +198,9 @@ class Tables:
                 "kwds": {
                     "TIME_UNITS_PER_DAY": 1,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_gsflow_gage,
             },
@@ -217,9 +216,9 @@ class Tables:
                 "kwds": {
                     "TIME_UNITS_PER_DAY": 1,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_gsflow_gage,
             },
@@ -227,9 +226,9 @@ class Tables:
                 "args": ["CONTEXT", "FILE", "NEW_SERIES_NAME", "USECOL"],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_csv,
             },
@@ -245,9 +244,9 @@ class Tables:
                 ],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_hspfbin,
             },
@@ -255,9 +254,9 @@ class Tables:
                 "args": ["CONTEXT", "FILE", "LABEL", "NEW_SERIES_NAME"],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_plotgen,
             },
@@ -265,9 +264,9 @@ class Tables:
                 "args": ["CONTEXT", "FILE", "LABEL", "NEW_SERIES_NAME"],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_plotgen,
             },
@@ -275,9 +274,9 @@ class Tables:
                 "args": ["CONTEXT", "FILE", "SITE", "NEW_SERIES_NAME"],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_ssf,
             },
@@ -285,9 +284,9 @@ class Tables:
                 "args": ["CONTEXT", "FILE", "SITE", "NEW_SERIES_NAME"],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_ssf,
             },
@@ -301,9 +300,9 @@ class Tables:
                 ],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_statvar,
             },
@@ -317,9 +316,9 @@ class Tables:
                 ],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_statvar,
             },
@@ -342,9 +341,9 @@ class Tables:
                 ],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_tetrad,
             },
@@ -359,9 +358,9 @@ class Tables:
                 ],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_ufore_hydro,
             },
@@ -369,9 +368,9 @@ class Tables:
                 "args": ["CONTEXT", "NEW_SERIES_NAME", "FILE", "DSN"],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                     "DEF_TIME": "00:00:00",
                     "FILTER": None,
                 },
@@ -383,9 +382,9 @@ class Tables:
                     "SHEET": 1,
                     "COLUMN": 1,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.get_series_xlsx,
             },
@@ -401,9 +400,9 @@ class Tables:
                     "WINDOW": 1,
                     "MIN_PEAK": 0,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.hydro_events,
             },
@@ -413,9 +412,9 @@ class Tables:
                     "WINDOW": 1,
                     "MIN_PEAK": 0,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.hydro_peaks,
             },
@@ -438,9 +437,9 @@ class Tables:
                     "TH": None,
                     "RA": None,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                     "CURRENT_DEFINITIONS": False,
                 },
                 "f": self.hydrologic_indices,
@@ -506,9 +505,9 @@ class Tables:
                     "LOG": "no",
                     "POWER": 1,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.period_statistics,
             },
@@ -534,9 +533,9 @@ class Tables:
                     "MARK_RIGHT": True,
                     "GRID": False,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.plot,
             },
@@ -544,9 +543,9 @@ class Tables:
                 "args": ["CONTEXT", "SERIES_NAME", "NEW_SERIES_NAME"],
                 "kwds": {
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.reduce_time_span,
             },
@@ -597,9 +596,9 @@ class Tables:
                     "VOLUMETRIC_EFFICIENCY": "no",
                     "EXPONENT": 1,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.series_compare,
             },
@@ -637,9 +636,9 @@ class Tables:
                     "LOG": "no",
                     "POWER": 1,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.series_statistics,
             },
@@ -654,9 +653,9 @@ class Tables:
                 "kwds": {
                     "AREA": 1.0,
                     "DATE_1": None,
-                    "TIME_1": None,
+                    "TIME_1": "00:00:00",
                     "DATE_2": None,
-                    "TIME_2": None,
+                    "TIME_2": "24:00:00",
                 },
                 "f": self.usgs_hysep,
             },
@@ -900,9 +899,9 @@ class Tables:
         log: bool = False,
         power: Annotated[float, Field(gt=0)] = 1,
         date_1=None,
-        time_1=None,
+        time_1="00:00:00",
         date_2=None,
-        time_2=None,
+        time_2="24:00:00",
         **minmaxmeans,
     ):
         if power == 1:
@@ -1016,12 +1015,29 @@ class Tables:
                 cf = [cutoff_frequency_1, cutoff_frequency_2]
             sos = signal.butter(stages, cf, scipy_pass, fs=fs, output="sos")
             filtered = signal.sosfilt(sos, series)
-        elif filter_type.lower() in ("baseflow_separation"):
-            filtered = baseflow_sep.lh(series)
+        elif filter_type.lower() == "baseflow_separation":
+            # filtered = baseflow_sep.lyne_hollick(series, alpha, passes=passes)
+            filtered = series.ffill().bfill()
+            temp_series = filtered
+            alpha1 = (1.0 + alpha) * 0.5
+            for ip in range(1, passes + 1):
+                if ip > 1:
+                    temp_series = filtered[::-1]
+                yk = filtered.iloc[0]
+                yk1 = filtered.iloc[1]
+                yk_1 = yk - (yk1 - yk)
+                fk_1 = yk_1
+                filtered.iloc[0] = alpha * fk_1 + alpha1 * (yk - yk_1)
+                for j in range(1, len(series)):
+                    filtered.iloc[j] = alpha * filtered.iloc[j - 1] + alpha1 * (
+                        temp_series.iloc[j] - temp_series.iloc[j - 1]
+                    )
+
+        filtered = pd.Series(filtered.squeeze(), index=filtered.index)
         if clip_zero:
             filtered = filtered.clip(lower=0)
         if clip_input:
-            filtered.loc[filtered > series] = series.loc[filtered > series]
+            filtered = filtered.clip(upper=series)
         self._join(new_series_name, series=filtered)
 
     @validate_call
@@ -2065,7 +2081,10 @@ class Tables:
             dfi.iloc[-1, 1] = dfi.iloc[-1, 0]
             dfi = pd.Series(dfi.iloc[:, 1])
             dfindex = dfi.index.astype(np.int64) // 10**9
-            volume.append(np.trapz(dfi, x=dfindex) * float(factor))
+            try:
+                volume.append(np.trapz(dfi, x=dfindex) * float(factor))
+            except AttributeError:
+                volume.append(np.trapezoid(dfi, x=dfindex) * float(factor))
         start = [pd.to_datetime(i[0]) for i in start_end]
         end = [pd.to_datetime(i[1]) for i in start_end]
         series = pd.DataFrame(zip(start, end, volume))
